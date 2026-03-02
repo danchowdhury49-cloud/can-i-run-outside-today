@@ -4,7 +4,7 @@ type Props = {
   value: string;
   onChange: (slug: string) => void;
 
-  // Called when user wants to zoom/focus the map to the current selection
+  // optional: force zoom/refocus even if selection didn't change
   onFocus?: () => void;
 };
 
@@ -19,9 +19,6 @@ export function RegionSelect({ value, onChange, onFocus }: Props) {
         <select
           className="w-full rounded-full border border-sky-200 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
           value={value}
-          // ✅ This fires even when selecting the same option again (where onChange won't)
-          onClick={() => onFocus?.()}
-          onFocus={() => onFocus?.()}
           onChange={(e) => onChange(e.target.value)}
         >
           {REGIONS.map((region: Region) => (
