@@ -4,14 +4,14 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-type AreaLike = {
+export type AreaLike = {
   slug: string;
   name: string;
   // expected from your areas.ts
   center: [number, number]; // [lat, lon]
 };
 
-type RouteLike = {
+export type RouteLike = {
   id: string;
   name: string;
   regionSlug: string;
@@ -44,15 +44,13 @@ function clamp(n: number, min: number, max: number) {
 }
 
 function scoreHour(h: Hour) {
-  // A simple “runner comfort” heuristic (tweak later):
-  // - Penalize rain probability + gusts
-  // - Prefer feels-like around 10–16C (UK default “nice run”)
+  // Simple “runner comfort” heuristic:
   const rain = h.rainProb ?? 0;
   const gusts = h.gusts ?? 0;
   const feels = h.feels ?? h.temp ?? 12;
 
   const rainPenalty = clamp(rain / 100, 0, 1) * 55; // up to -55
-  const gustPenalty = clamp((gusts - 15) / 50, 0, 1) * 35; // gusts >15 start hurting
+  const gustPenalty = clamp((gusts - 15) / 50, 0, 1) * 35; // gusts >15 hurt
   const tempPenalty = clamp(Math.abs(feels - 13) / 12, 0, 1) * 20; // best around 13C
 
   const score = 100 - rainPenalty - gustPenalty - tempPenalty;
@@ -151,14 +149,12 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
           }
         });
 
-        // Fit to line bounds
         const bounds = route.coordinates!.reduce(
           (b, c) => b.extend(c as [number, number]),
           new maplibregl.LngLatBounds(route.coordinates![0], route.coordinates![0])
         );
         map.fitBounds(bounds, { padding: 24, duration: 0 });
       } else {
-        // If no coordinates yet, show a point at the area centre
         new maplibregl.Marker({ color: "#16a34a" }).setLngLat(centerLngLat).addTo(map);
       }
     });
@@ -234,7 +230,6 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
   }, [open, area.center]);
 
   const current = useMemo(() => (hours && hours.length > 0 ? hours[0] : null), [hours]);
-
   const bestMorning = useMemo(() => (hours ? pickBest(hours, 6, 10) : null), [hours]);
   const bestLunch = useMemo(() => (hours ? pickBest(hours, 11, 14) : null), [hours]);
   const bestEvening = useMemo(() => (hours ? pickBest(hours, 16, 20) : null), [hours]);
@@ -243,7 +238,6 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* backdrop */}
       <button
         type="button"
         onClick={onClose}
@@ -280,15 +274,15 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
         </div>
 
         <div className="grid gap-4 p-4 md:grid-cols-2">
-          {/* mini map */}
           <div className="rounded-2xl border border-sky-200 bg-slate-100">
             <div ref={mapElRef} className="h-[220px] w-full rounded-2xl" />
             <div className="px-3 py-2 text-[11px] text-slate-600">
-              {route.coordinates?.length ? "Route preview" : "Area preview (add route coordinates later for the full line)"}
+              {route.coordinates?.length
+                ? "Route preview"
+                : "Area preview (add route coordinates later for the full line)"}
             </div>
           </div>
 
-          {/* weather + best windows */}
           <div className="space-y-3">
             <div className="rounded-2xl border border-sky-200 bg-white p-3">
               <div className="text-xs font-semibold uppercase tracking-wide text-slate-600">
@@ -308,9 +302,7 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
                   </div>
                   <div className="rounded-xl bg-sky-50 p-2">
                     <div className="text-[11px] text-slate-600">Rain chance</div>
-                    <div className="font-semibold text-slate-900">
-                      {current.rainProb ?? 0}%
-                    </div>
+                    <div className="font-semibold text-slate-900">{current.rainProb ?? 0}%</div>
                   </div>
                 </div>
               )}
@@ -331,7 +323,7 @@ export function RouteDetailsModal({ open, onClose, regionSlug, area, route }: Pr
               )}
 
               <div className="mt-2 text-[11px] text-slate-500">
-                Scoring is a simple blend of rain chance, gusts and feels-like temperature (we can tune this later).
+                Scoring blends rain chance, gusts and feels-like temperature (we can tune later).
               </div>
             </div>
           </div>
@@ -372,4 +364,3 @@ function BestRow({
     </div>
   );
 }
-
