@@ -5,6 +5,7 @@ import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Region } from "@/lib/regions";
 import type { PointWeather } from "@/lib/weather-types";
+import { UK_CITIES } from "@/lib/uk-cities";
 
 type Props = {
   region: Region;
@@ -13,6 +14,10 @@ type Props = {
 
 const SOURCE_ID = "run-points";
 const LAYER_ID = "run-points-layer";
+
+const CITIES_SOURCE_ID = "uk-cities";
+const CITIES_LAYER_ID = "uk-cities-layer";
+const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
 
 export function MapView({ region, points }: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -26,7 +31,6 @@ export function MapView({ region, points }: Props) {
       style: "https://demotiles.maplibre.org/style.json",
       center: [region.center[1], region.center[0]],
       zoom: 6
-      // attributionControl: true,  // ❌ remove this; MapLibre defaults are fine
     });
 
     map.addControl(
@@ -34,13 +38,18 @@ export function MapView({ region, points }: Props) {
       "top-right"
     );
 
+    // Reusable popup for hover (so we don’t create a new one every mouse move)
+    const hoverPopup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 10
+    });
+
     map.on("load", () => {
+      // --- Run points (your scored green/orange/red dots) ---
       map.addSource(SOURCE_ID, {
         type: "geojson",
-        data: {
-          type: "FeatureCollection",
-          features: []
-        }
+        data: { type: "FeatureCollection", features: [] }
       });
 
       map.addLayer({
@@ -64,14 +73,63 @@ export function MapView({ region, points }: Props) {
         }
       });
 
-      map.on("click", LAYER_ID, (e) => {
+      // --- UK cities (always visible labels) ---
+      map.addSource(CITIES_SOURCE_ID, {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: UK_CITIES.map((c) => ({
+            type: "Feature" as const,
+            geometry: { type: "Point" as const, coordinates: [c.lon, c.lat] },
+            properties: { name: c.name }
+          }))
+        }
+      });
+
+      // Small city dot (subtle)
+      map.addLayer({
+        id: CITIES_DOT_LAYER_ID,
+        type: "circle",
+        source: CITIES_SOURCE_ID,
+        paint: {
+          "circle-radius": 3,
+          "circle-color": "#1e40af", // blue
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff"
+        }
+      });
+
+      // City labels
+      map.addLayer({
+        id: CITIES_LAYER_ID,
+        type: "symbol",
+        source: CITIES_SOURCE_ID,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": 12,
+          "text-offset": [0, 1.1],
+          "text-anchor": "top",
+          "text-allow-overlap": true,
+          "text-ignore-placement": true
+        },
+        paint: {
+          "text-color": "#0f172a",
+          "text-halo-color": "#ffffff",
+          "text-halo-width": 1.25
+        }
+      });
+
+      // --- Hover behavior for run points ---
+      map.on("mousemove", LAYER_ID, (e) => {
+        map.getCanvas().style.cursor = "pointer";
+
         const feature = e.features?.[0];
         if (!feature) return;
 
         const props = feature.properties as any;
         const coordinates =
           feature.geometry.type === "Point"
-            ? feature.geometry.coordinates.slice()
+            ? (feature.geometry.coordinates.slice() as [number, number])
             : null;
 
         if (!coordinates) return;
@@ -79,26 +137,57 @@ export function MapView({ region, points }: Props) {
         const html = `
           <div class="text-xs">
             <div class="font-semibold mb-1">${props.name}</div>
-            <div>Score: ${props.score}/100</div>
-            <div>Temp: ${props.temperature.toFixed(1)}°C feels ${props.apparentTemperature.toFixed(1)}°C</div>
-            <div>Rain: ${props.precipitationProbability.toFixed(0)}% · ${props.precipitation.toFixed(1)}mm</div>
-            <div>Wind: ${props.windspeed.toFixed(0)} km/h · gusts ${props.windgusts.toFixed(0)} km/h</div>
+            <div><b>Score:</b> ${props.score}/100</div>
+            <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(props.apparentTemperature).toFixed(1)}°C</div>
+            <div>Rain: ${Number(props.precipitationProbability).toFixed(0)}% · ${Number(props.precipitation).toFixed(1)}mm</div>
+            <div>Wind: ${Number(props.windspeed).toFixed(0)} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
+          </div>
+        `;
+
+        hoverPopup.setLngLat(coordinates).setHTML(html).addTo(map);
+      });
+
+      map.on("mouseleave", LAYER_ID, () => {
+        map.getCanvas().style.cursor = "";
+        hoverPopup.remove();
+      });
+
+      // Optional: keep click too (some people like it)
+      map.on("click", LAYER_ID, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+
+        const props = feature.properties as any;
+        const coordinates =
+          feature.geometry.type === "Point"
+            ? (feature.geometry.coordinates.slice() as [number, number])
+            : null;
+
+        if (!coordinates) return;
+
+        const html = `
+          <div class="text-xs">
+            <div class="font-semibold mb-1">${props.name}</div>
+            <div><b>Score:</b> ${props.score}/100</div>
+            <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(props.apparentTemperature).toFixed(1)}°C</div>
+            <div>Rain: ${Number(props.precipitationProbability).toFixed(0)}% · ${Number(props.precipitation).toFixed(1)}mm</div>
+            <div>Wind: ${Number(props.windspeed).toFixed(0)} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
           </div>
         `;
 
         new maplibregl.Popup({ closeButton: false })
-          .setLngLat(coordinates as [number, number])
+          .setLngLat(coordinates)
           .setHTML(html)
           .addTo(map);
       });
 
-      // Iteration 2 note: this is where we would add raster/tiling weather overlays
-      // as separate layers, keyed by the selected hour, on top of the base map.
+      // Iteration 2 note: overlays go here
     });
 
     mapRef.current = map;
 
     return () => {
+      hoverPopup.remove();
       map.remove();
       mapRef.current = null;
     };
