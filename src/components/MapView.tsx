@@ -34,8 +34,10 @@ export function MapView({ region, points }: Props) {
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: "https://demotiles.maplibre.org/style.json",
-      center: [region.center[1], region.center[0]],
-      zoom: 6
+
+      // ✅ Start UK-wide (not region-based)
+      center: [-2.5, 54.5],
+      zoom: 5
     });
 
     map.addControl(
@@ -125,11 +127,9 @@ export function MapView({ region, points }: Props) {
       });
 
       // ============================================================
-      // POINT C (FULL BLOCK): Chester/Hoole “ideal route” green dots
-      // Paste/keep this whole block exactly as-is.
+      // Chester/Hoole “ideal route” green dots
       // ============================================================
 
-      // Add a GeoJSON source with a few “ideal run spot” points
       map.addSource(ROUTE_POINTS_SOURCE_ID, {
         type: "geojson",
         data: {
@@ -139,14 +139,12 @@ export function MapView({ region, points }: Props) {
             geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
             properties: {
               name: p.name,
-              // We force a high score so it visually matches “great” dots
               score: 100
             }
           }))
         }
       });
 
-      // Render those points as green dots (same size/stroke as run points)
       map.addLayer({
         id: ROUTE_POINTS_LAYER_ID,
         type: "circle",
@@ -155,11 +153,10 @@ export function MapView({ region, points }: Props) {
           "circle-radius": 6,
           "circle-stroke-width": 1,
           "circle-stroke-color": "#ffffff",
-          "circle-color": "#16a34a" // always green
+          "circle-color": "#16a34a"
         }
       });
 
-      // Optional: hover popup for the Chester route points
       map.on("mousemove", ROUTE_POINTS_LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
 
@@ -188,8 +185,6 @@ export function MapView({ region, points }: Props) {
         map.getCanvas().style.cursor = "";
         hoverPopup.remove();
       });
-
-      // ============================================================
 
       // --- Hover behavior for run points ---
       map.on("mousemove", LAYER_ID, (e) => {
@@ -263,20 +258,13 @@ export function MapView({ region, points }: Props) {
       map.remove();
       mapRef.current = null;
     };
-  }, [region.center]);
+  }, []);
 
+  // ✅ IMPORTANT: Remove forced auto-zoom to region on load
+  // If you leave this in, it will always zoom straight into London because the region defaults to London.
+  // If later you want it to zoom only AFTER a user selection, we’ll add a small flag in the page component.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const [minLon, minLat, maxLon, maxLat] = region.bbox;
-    map.fitBounds(
-      [
-        [minLon, minLat],
-        [maxLon, maxLat]
-      ],
-      { padding: 32, duration: 500 }
-    );
+    // intentionally blank — no auto fitBounds
   }, [region.bbox, region.slug]);
 
   useEffect(() => {
