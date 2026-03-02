@@ -1,33 +1,35 @@
-import { notFound } from "next/navigation";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { getRegionBySlug } from "@/lib/regions";
-import { getAreasForRegion, type Area } from "@/lib/areas";
 import { ROUTE_STUBS } from "@/lib/routes-data";
+import { getAreasForRegion, type Area } from "@/lib/areas";
 
 type RouteStub = (typeof ROUTE_STUBS)[number];
-
-type PageProps = {
-  params: Promise<{ slug: string }>;
-};
 
 function groupByArea(routes: RouteStub[]) {
   const map = new Map<string, RouteStub[]>();
   for (const r of routes) {
-    const existing = map.get(r.areaSlug) ?? [];
+    const key = r.areaSlug ?? "__no_area__";
+    const existing = map.get(key) ?? [];
     existing.push(r);
-    map.set(r.areaSlug, existing);
+    map.set(key, existing);
   }
   return map;
 }
 
-export default async function RegionRoutesByAreaPage({ params }: PageProps) {
-  const { slug } = await params;
+export default function RegionRoutesPage({
+  params
+}: {
+  params: { slug: string };
+}) {
+  const slug = params.slug; // ✅ always a string now
 
   const region = getRegionBySlug(slug);
   if (!region) return notFound();
 
-  const areas = getAreasForRegion(region.slug);
   const regionRoutes = ROUTE_STUBS.filter((r) => r.regionSlug === region.slug);
+  const areas: Area[] = getAreasForRegion(region.slug);
+
   const byArea = groupByArea(regionRoutes);
 
   return (
@@ -35,28 +37,32 @@ export default async function RegionRoutesByAreaPage({ params }: PageProps) {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-slate-900">
-            {region.name} routes by area
+            {region.name} routes
           </h1>
           <p className="text-sm text-slate-600">
-            Pick an area, then tap a route to open the map and zoom in.
+            Pick an area for curated routes. Clicking a route will jump you to the map.
           </p>
         </div>
 
         <Link
           href={`/regions/${region.slug}`}
-          className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
+          className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm hover:border-primary"
         >
-          Open map
+          View map
         </Link>
       </div>
 
       {areas.length === 0 ? (
-        <div className="rounded-2xl border border-sky-200 bg-white/80 p-3 text-sm text-slate-700">
-          No areas defined for this region yet.
+        <div className="rounded-2xl border border-sky-200 bg-white/80 p-3 text-sm shadow-sm">
+          <div className="font-semibold text-slate-900">Areas coming soon</div>
+          <p className="mt-1 text-xs text-slate-600">
+            This region hasn’t been split into areas yet. Add areas in{" "}
+            <code>src/lib/areas.ts</code>.
+          </p>
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
-          {areas.map((area: Area) => {
+          {areas.map((area) => {
             const areaRoutes = byArea.get(area.slug) ?? [];
             return (
               <section
@@ -79,29 +85,28 @@ export default async function RegionRoutesByAreaPage({ params }: PageProps) {
                 ) : (
                   <ul className="mt-2 space-y-2 text-xs">
                     {areaRoutes.map((route) => (
-                      <li key={route.id} className="rounded-xl bg-skysoft/60 p-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="font-medium text-slate-900">
-                            {route.name}
+                      <li
+                        key={route.id}
+                        className="rounded-xl bg-skysoft/60 p-2"
+                      >
+                        {/* For now: link to region map. Next step is passing area/route focus params */}
+                        <Link
+                          href={`/regions/${region.slug}`}
+                          className="block"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="font-medium text-slate-900">
+                              {route.name}
+                            </div>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-slate-700">
+                              {route.distanceKm.toFixed(1)} km · {route.terrain}
+                            </span>
                           </div>
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] text-slate-700">
-                            {route.distanceKm.toFixed(1)} km · {route.terrain}
-                          </span>
-                        </div>
-
-                        <p className="mt-1 text-slate-700">{route.vibe}</p>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          {route.notes}
-                        </p>
-
-                        <div className="mt-2">
-                          <Link
-                            href={`/regions/${region.slug}?focus=${area.slug}`}
-                            className="inline-flex rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
-                          >
-                            View on map
-                          </Link>
-                        </div>
+                          <p className="mt-1 text-slate-700">{route.vibe}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {route.notes}
+                          </p>
+                        </Link>
                       </li>
                     ))}
                   </ul>
@@ -109,6 +114,18 @@ export default async function RegionRoutesByAreaPage({ params }: PageProps) {
               </section>
             );
           })}
+        </div>
+      )}
+
+      {byArea.has("__no_area__") && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50/60 p-3">
+          <div className="text-sm font-semibold text-slate-900">
+            Needs area assignment
+          </div>
+          <p className="mt-1 text-xs text-slate-700">
+            Some routes only have <code>regionSlug</code>. Add <code>areaSlug</code>{" "}
+            in <code>src/lib/routes-data.ts</code> so they show under the right area.
+          </p>
         </div>
       )}
     </div>

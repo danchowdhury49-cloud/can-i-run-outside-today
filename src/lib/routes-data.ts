@@ -1,12 +1,10 @@
 export type RouteStub = {
   id: string;
   name: string;
-
-  // keep regionSlug (useful for grouping + future)
   regionSlug: string;
 
-  // NEW: drills down within region (city/borough/area)
-  areaSlug: string;
+  // NEW: attach route to an area
+  areaSlug?: string;
 
   distanceKm: number;
   terrain: "Road" | "Trail" | "Mixed";
@@ -15,327 +13,499 @@ export type RouteStub = {
 };
 
 export const ROUTE_STUBS: RouteStub[] = [
-  // ============================================================
-  // LONDON (split into Central / North / East / South / West)
-  // ============================================================
+  // ======================
+  // LONDON — Central
+  // ======================
   {
-    id: "london-hyde-park-classic",
-    regionSlug: "london",
-    areaSlug: "london-west",
-    name: "Hyde Park loop",
-    distanceKm: 7.2,
-    terrain: "Road",
-    vibe: "Flat, scenic, and full of other people pretending it’s an easy day.",
-    notes: "Mix of paths and pavements; easy to extend via Kensington Gardens."
-  },
-  {
-    id: "london-thames-easy",
+    id: "london-thames-central",
     regionSlug: "london",
     areaSlug: "london-central",
     name: "Thames easy out-and-back",
     distanceKm: 10,
     terrain: "Road",
     vibe: "Classic river views, mild tourist dodging required.",
-    notes: "Pick a bridge as your turnaround; busiest near landmark sections."
+    notes: "Pick a bridge as your turnaround; avoid peak landmark choke points."
   },
   {
-    id: "london-regents-canal",
+    id: "london-regents-canal-central",
     regionSlug: "london",
-    areaSlug: "london-north",
+    areaSlug: "london-central",
     name: "Regent’s Canal cruise",
     distanceKm: 8.5,
     terrain: "Mixed",
-    vibe: "Steady, flat-ish miles with a calm, ‘just keep ticking’ vibe.",
-    notes: "Good for easy runs; watch for cyclists and narrow towpath sections."
+    vibe: "Flat, steady rhythm with little pockets of chaos.",
+    notes: "Watch for cyclists + narrow sections; great for easy miles."
+  },
+
+  // London — West
+  {
+    id: "london-hyde-park-loop",
+    regionSlug: "london",
+    areaSlug: "london-west",
+    name: "Hyde Park loop",
+    distanceKm: 7.2,
+    terrain: "Road",
+    vibe: "Flat, scenic, and full of other people pretending it’s an easy day.",
+    notes: "Easy to extend via Kensington Gardens; paths get busy weekends."
   },
   {
-    id: "london-victoria-park-laps",
+    id: "london-richmond-park-laps",
+    regionSlug: "london",
+    areaSlug: "london-west",
+    name: "Richmond Park lap(s)",
+    distanceKm: 10.6,
+    terrain: "Road",
+    vibe: "Rolling but runnable; feels like you’ve escaped London for an hour.",
+    notes: "Add or subtract laps; deer are the unofficial marshals."
+  },
+
+  // London — East
+  {
+    id: "london-victoria-park",
     regionSlug: "london",
     areaSlug: "london-east",
-    name: "Victoria Park steady laps",
-    distanceKm: 6,
+    name: "Victoria Park loops",
+    distanceKm: 6.2,
     terrain: "Road",
-    vibe: "Park laps that feel like training, not sightseeing.",
-    notes: "Great for tempos or progression runs; add laps to taste."
+    vibe: "Fast, flat, and social — tempo-friendly.",
+    notes: "Good lighting; easy to add miles via canal paths."
   },
   {
-    id: "london-burgess-park",
+    id: "london-hackney-marshes",
+    regionSlug: "london",
+    areaSlug: "london-east",
+    name: "Hackney Marshes & Lea",
+    distanceKm: 9,
+    terrain: "Mixed",
+    vibe: "Open skies and long straights. Wind will have opinions.",
+    notes: "Great when you want uninterrupted running; watch for muddy sections."
+  },
+
+  // London — South
+  {
+    id: "london-battersea-riverside",
     regionSlug: "london",
     areaSlug: "london-south",
-    name: "Burgess Park loops",
-    distanceKm: 7,
-    terrain: "Mixed",
-    vibe: "Low-fuss route for ‘get it done’ days.",
-    notes: "Paths + pavements; easy to extend toward Southwark / Peckham."
-  },
-
-  // ============================================================
-  // SOUTH EAST (Brighton / Oxford / Reading / Canterbury)
-  // ============================================================
-  {
-    id: "south-east-brighton-front",
-    regionSlug: "south-east",
-    areaSlug: "se-brighton",
-    name: "Brighton seafront breeze check",
+    name: "Battersea + riverside link-up",
     distanceKm: 8,
     terrain: "Road",
-    vibe: "Wind-graded tempo depending on direction.",
-    notes: "Out-and-back along the promenade; exposure makes wind forecasts very real."
+    vibe: "Smooth and predictable — ideal for easy runs.",
+    notes: "Loop Battersea then add river stretch; busy at lunch hour."
   },
   {
-    id: "south-east-brighton-marina",
-    regionSlug: "south-east",
-    areaSlug: "se-brighton",
-    name: "Brighton → Marina out-and-back",
-    distanceKm: 10,
+    id: "london-clapham-common",
+    regionSlug: "london",
+    areaSlug: "london-south",
+    name: "Clapham Common reps-friendly loop",
+    distanceKm: 5,
     terrain: "Road",
-    vibe: "Sea views, long straights, ‘lock in and cruise’.",
-    notes: "Busy at peak times; sunrise runs hit different."
-  },
-  {
-    id: "south-east-oxford-riverside",
-    regionSlug: "south-east",
-    areaSlug: "se-oxford",
-    name: "Oxford riverside easy miles",
-    distanceKm: 9,
-    terrain: "Mixed",
-    vibe: "Quiet, flat, and extremely ‘Sunday morning’.",
-    notes: "Can be muddy after rain; great for relaxed aerobic runs."
-  },
-  {
-    id: "south-east-reading-thames",
-    regionSlug: "south-east",
-    areaSlug: "se-reading",
-    name: "Reading Thames path cruise",
-    distanceKm: 11,
-    terrain: "Mixed",
-    vibe: "Steady effort, minimal hills, easy pacing.",
-    notes: "Watch footing after rain; great for longer steady runs."
-  },
-  {
-    id: "south-east-canterbury-city-loop",
-    regionSlug: "south-east",
-    areaSlug: "se-canterbury",
-    name: "Canterbury park-and-river loop",
-    distanceKm: 7.5,
-    terrain: "Road",
-    vibe: "A tidy loop that feels ‘local runner approved’.",
-    notes: "Mix of paths and streets; add distance by extending along the river."
+    vibe: "Short loop for strides, reps, and pretending you’re disciplined.",
+    notes: "Good lighting; extend via nearby streets if it’s crowded."
   },
 
-  // ============================================================
-  // SOUTH WEST (Bristol / Bath / Exeter / Plymouth)
-  // ============================================================
+  // ======================
+  // NORTH WEST — Manchester
+  // ======================
   {
-    id: "south-west-bristol-downs",
-    regionSlug: "south-west",
-    areaSlug: "sw-bristol",
-    name: "Bristol Downs and suspension bridge",
-    distanceKm: 9,
-    terrain: "Road",
-    vibe: "Iconic views with rolling effort.",
-    notes: "Loop options on the Downs; mind the climb back up if you drop to the river."
-  },
-  {
-    id: "south-west-bristol-harbour",
-    regionSlug: "south-west",
-    areaSlug: "sw-bristol",
-    name: "Harbourside easy loop",
-    distanceKm: 6.8,
-    terrain: "Road",
-    vibe: "Flat-ish and forgiving—good for easy days.",
-    notes: "Popular paths; go early if you want fewer obstacles."
-  },
-  {
-    id: "south-west-bath-canal",
-    regionSlug: "south-west",
-    areaSlug: "sw-bath",
-    name: "Bath canal path steady run",
-    distanceKm: 10,
-    terrain: "Trail",
-    vibe: "Relaxed towpath miles with minimal elevation drama.",
-    notes: "Can be slippery after rain; bring traction confidence."
-  },
-  {
-    id: "south-west-exeter-riverside",
-    regionSlug: "south-west",
-    areaSlug: "sw-exeter",
-    name: "Exeter riverside out-and-back",
-    distanceKm: 12,
-    terrain: "Mixed",
-    vibe: "Long, steady, and perfect for marathon-brain runs.",
-    notes: "Great for controlled steady effort; watch shared-use sections."
-  },
-  {
-    id: "south-west-plymouth-hoe",
-    regionSlug: "south-west",
-    areaSlug: "sw-plymouth",
-    name: "Plymouth Hoe coastal loop",
-    distanceKm: 8.2,
-    terrain: "Road",
-    vibe: "Sea air + open skies + mild wind roulette.",
-    notes: "Exposed in gusts; but the views repay the suffering."
-  },
-
-  // ============================================================
-  // NORTH WEST (Manchester / Liverpool / Chester / Preston / Blackpool / Warrington)
-  // ============================================================
-  {
-    id: "north-west-manchester-heaton-park",
+    id: "nw-mcr-heaton-park",
     regionSlug: "north-west",
     areaSlug: "nw-manchester",
     name: "Heaton Park loop(s)",
     distanceKm: 7.5,
     terrain: "Mixed",
     vibe: "Big park energy: steady loops, easy pacing, lots of runners.",
-    notes: "Good for tempos with controlled effort; extend with extra laps."
+    notes: "Good for controlled effort; extend with extra laps."
   },
   {
-    id: "north-west-manchester-canal",
+    id: "nw-mcr-ship-canal",
     regionSlug: "north-west",
     areaSlug: "nw-manchester",
     name: "Canal towpath cruise",
     distanceKm: 10,
     terrain: "Trail",
     vibe: "Flat miles that make you feel suspiciously efficient.",
-    notes: "Watch for narrow towpath sections; mud after rain."
-  },
-  {
-    id: "north-west-liverpool-sefton-park",
-    regionSlug: "north-west",
-    areaSlug: "nw-liverpool",
-    name: "Sefton Park steady laps",
-    distanceKm: 6,
-    terrain: "Road",
-    vibe: "Park laps with a ‘proper session’ feel.",
-    notes: "Easy to stack laps for longer runs; great for tempo pacing."
-  },
-  {
-    id: "north-west-liverpool-docks",
-    regionSlug: "north-west",
-    areaSlug: "nw-liverpool",
-    name: "Albert Dock / waterfront out-and-back",
-    distanceKm: 9,
-    terrain: "Road",
-    vibe: "Flat waterfront miles—great for cruising.",
-    notes: "Can be windy and busy; early runs are best."
-  },
-  {
-    id: "north-west-chester-canal-towpath",
-    regionSlug: "north-west",
-    areaSlug: "nw-chester",
-    name: "Chester canal towpath (Hoole-friendly)",
-    distanceKm: 8,
-    terrain: "Trail",
-    vibe: "Flat, calming, and ideal for ‘head empty, legs moving’.",
-    notes: "Good from Hoole area; can be muddy after rain—choose shoes accordingly."
-  },
-  {
-    id: "north-west-chester-river-dee",
-    regionSlug: "north-west",
-    areaSlug: "nw-chester",
-    name: "River Dee loop",
-    distanceKm: 10,
-    terrain: "Mixed",
-    vibe: "Scenic river miles with a steady rhythm.",
-    notes: "Mix of paths and sections that can get busy on weekends."
-  },
-  {
-    id: "north-west-preston-avenham",
-    regionSlug: "north-west",
-    areaSlug: "nw-preston",
-    name: "Avenham & Miller Park loop",
-    distanceKm: 7,
-    terrain: "Road",
-    vibe: "Park loop with enough variation to stay interesting.",
-    notes: "Add laps or extend toward riverside paths."
-  },
-  {
-    id: "north-west-blackpool-prom",
-    regionSlug: "north-west",
-    areaSlug: "nw-blackpool",
-    name: "Blackpool prom out-and-back",
-    distanceKm: 10,
-    terrain: "Road",
-    vibe: "Dead-flat miles, wind makes it spicy.",
-    notes: "Great for steady pacing; pick direction based on wind."
-  },
-  {
-    id: "north-west-warrington-riverside",
-    regionSlug: "north-west",
-    areaSlug: "nw-warrington",
-    name: "Riverside steady run",
-    distanceKm: 9,
-    terrain: "Mixed",
-    vibe: "Low-fuss local route for consistent training.",
-    notes: "Good for easy miles; shared paths at busy times."
+    notes: "Can be muddy after rain; great for easy/steady runs."
   },
 
-  // ============================================================
-  // SCOTLAND (Central Belt) — your slug is scotland-central-belt
-  // ============================================================
+  // North West — Liverpool
   {
-    id: "scotland-central-canal",
-    regionSlug: "scotland-central-belt",
-    areaSlug: "scot-glasgow",
-    name: "Canal path cruise",
-    distanceKm: 12,
-    terrain: "Trail",
-    vibe: "Flat and steady, perfect for easy miles or controlled tempos.",
-    notes: "Watch for mud after rain; shelter improves when it’s windy."
+    id: "nw-liv-sefton-park",
+    regionSlug: "north-west",
+    areaSlug: "nw-liverpool",
+    name: "Sefton Park loop",
+    distanceKm: 5.3,
+    terrain: "Road",
+    vibe: "Scenic and quick — a proper staple.",
+    notes: "Add loops for longer runs; busy weekends."
   },
   {
-    id: "scotland-edinburgh-meadows",
-    regionSlug: "scotland-central-belt",
-    areaSlug: "scot-edinburgh",
-    name: "The Meadows laps",
+    id: "nw-liv-waterfront",
+    regionSlug: "north-west",
+    areaSlug: "nw-liverpool",
+    name: "Waterfront out-and-back",
+    distanceKm: 8,
+    terrain: "Road",
+    vibe: "Open, flat, and a little breezy.",
+    notes: "Wind can turn this into a workout; pick direction based on forecast."
+  },
+
+  // North West — Chester
+  {
+    id: "nw-chee-canal-hoole",
+    regionSlug: "north-west",
+    areaSlug: "nw-chester",
+    name: "Hoole → Canal towpath",
+    distanceKm: 8.2,
+    terrain: "Trail",
+    vibe: "Flat, calm, and very extendable.",
+    notes: "Great easy-run route. Towpath can be soft after rain."
+  },
+  {
+    id: "nw-chee-river-dee",
+    regionSlug: "north-west",
+    areaSlug: "nw-chester",
+    name: "River Dee riverside",
+    distanceKm: 10,
+    terrain: "Mixed",
+    vibe: "Scenic and relaxed with plenty of options to shorten/extend.",
+    notes: "Busier on nice days; perfect for steady miles."
+  },
+
+  // ======================
+  // SOUTH EAST — Brighton
+  // ======================
+  {
+    id: "se-bri-seafront",
+    regionSlug: "south-east",
+    areaSlug: "se-brighton",
+    name: "Brighton seafront breeze check",
+    distanceKm: 8,
+    terrain: "Road",
+    vibe: "Wind-graded tempo depending on direction.",
+    notes: "Out-and-back along the promenade; exposure makes wind very real."
+  },
+  {
+    id: "se-bri-marina-out",
+    regionSlug: "south-east",
+    areaSlug: "se-brighton",
+    name: "Palace Pier → Marina",
     distanceKm: 6.5,
     terrain: "Road",
-    vibe: "Classic ‘locals doing a session’ energy.",
-    notes: "Great for tempos; add laps to hit your distance."
-  },
-  {
-    id: "scotland-glasgow-green",
-    regionSlug: "scotland-central-belt",
-    areaSlug: "scot-glasgow",
-    name: "Glasgow Green steady loop",
-    distanceKm: 8,
-    terrain: "Road",
-    vibe: "Simple, flat, and very runnable.",
-    notes: "Good for easy runs or controlled steady efforts."
+    vibe: "Fast and flat. The sea judges your pacing.",
+    notes: "Add extra miles by extending past the marina."
   },
 
-  // ============================================================
-  // WALES (South) — your slug is wales-south
-  // ============================================================
+  // South East — Kent
   {
-    id: "wales-bay-run",
+    id: "se-kent-coastal",
+    regionSlug: "south-east",
+    areaSlug: "se-kent",
+    name: "Coastal path sampler",
+    distanceKm: 9,
+    terrain: "Mixed",
+    vibe: "Views for days; wind adds spice.",
+    notes: "Surface varies; great for steady runs, not ideal for sharp reps."
+  },
+  {
+    id: "se-kent-park-loop",
+    regionSlug: "south-east",
+    areaSlug: "se-kent",
+    name: "Town park loops",
+    distanceKm: 5,
+    terrain: "Road",
+    vibe: "Reliable and repeatable.",
+    notes: "Use as a base and add loops; good for tempo blocks."
+  },
+
+  // South East — Surrey Hills
+  {
+    id: "se-surrey-trail-roller",
+    regionSlug: "south-east",
+    areaSlug: "se-surrey",
+    name: "Surrey Hills trail roller",
+    distanceKm: 11,
+    terrain: "Trail",
+    vibe: "Hilly and honest — strength builder.",
+    notes: "Bring grippy shoes if it’s wet; keep effort easy on climbs."
+  },
+  {
+    id: "se-surrey-mixed-loop",
+    regionSlug: "south-east",
+    areaSlug: "se-surrey",
+    name: "Woodland mixed loop",
+    distanceKm: 8,
+    terrain: "Mixed",
+    vibe: "Sheltered and calm — good when wind is annoying.",
+    notes: "Some mud after rain; great easy run option."
+  },
+
+  // South East — Oxford
+  {
+    id: "se-ox-thames-path",
+    regionSlug: "south-east",
+    areaSlug: "se-oxford",
+    name: "Thames Path steady",
+    distanceKm: 10,
+    terrain: "Trail",
+    vibe: "Flat and peaceful — steady pace heaven.",
+    notes: "Towpath can be soft; choose shoes accordingly."
+  },
+  {
+    id: "se-ox-uni-loops",
+    regionSlug: "south-east",
+    areaSlug: "se-oxford",
+    name: "City loop (quiet streets)",
+    distanceKm: 7,
+    terrain: "Road",
+    vibe: "Smooth running, minimal interruptions if you pick the right time.",
+    notes: "Early mornings are best; avoid peak pedestrian times."
+  },
+
+  // South East — Cambridge
+  {
+    id: "se-cam-river-cam",
+    regionSlug: "south-east",
+    areaSlug: "se-cambridge",
+    name: "River Cam easy",
+    distanceKm: 8,
+    terrain: "Mixed",
+    vibe: "Flat, scenic, and very extendable.",
+    notes: "Busy in tourist zones; go early for a cleaner run."
+  },
+  {
+    id: "se-cam-gog-magog",
+    regionSlug: "south-east",
+    areaSlug: "se-cambridge",
+    name: "Gog Magog gentle hills",
+    distanceKm: 10.5,
+    terrain: "Trail",
+    vibe: "Just enough hills to feel productive.",
+    notes: "Trail conditions vary; best as an easy/steady run."
+  },
+
+  // ======================
+  // SOUTH WEST — Bristol
+  // ======================
+  {
+    id: "sw-bristol-downs",
+    regionSlug: "south-west",
+    areaSlug: "sw-bristol",
+    name: "Bristol Downs + suspension bridge",
+    distanceKm: 9,
+    terrain: "Road",
+    vibe: "Iconic views with rolling effort.",
+    notes: "Mind the climb if you drop to the river."
+  },
+  {
+    id: "sw-bristol-harbour",
+    regionSlug: "south-west",
+    areaSlug: "sw-bristol",
+    name: "Harbourside loop",
+    distanceKm: 7.8,
+    terrain: "Road",
+    vibe: "Flat, easy, and great for steady pacing.",
+    notes: "Can get busy; mornings give you the cleanest line."
+  },
+
+  // South West — Bath
+  {
+    id: "sw-bath-canal",
+    regionSlug: "south-west",
+    areaSlug: "sw-bath",
+    name: "Canal path cruise",
+    distanceKm: 10,
+    terrain: "Trail",
+    vibe: "Smooth, flat, and sheltered.",
+    notes: "Towpath can be narrow; keep it easy in busy sections."
+  },
+  {
+    id: "sw-bath-hills",
+    regionSlug: "south-west",
+    areaSlug: "sw-bath",
+    name: "Bath skyline hill tester",
+    distanceKm: 8.5,
+    terrain: "Mixed",
+    vibe: "Hills that make easy runs feel suspiciously hard.",
+    notes: "Keep effort controlled; great strength-building route."
+  },
+
+  // South West — Exeter
+  {
+    id: "sw-exe-river-exe",
+    regionSlug: "south-west",
+    areaSlug: "sw-exeter",
+    name: "Exeter Quay → Exe trail",
+    distanceKm: 10,
+    terrain: "Trail",
+    vibe: "Flat, scenic, and tempo-friendly.",
+    notes: "Good surface most of the year; can be windy in open stretches."
+  },
+  {
+    id: "sw-exe-park-loops",
+    regionSlug: "south-west",
+    areaSlug: "sw-exeter",
+    name: "Park loops + extensions",
+    distanceKm: 6,
+    terrain: "Road",
+    vibe: "Reliable and repeatable.",
+    notes: "Loop-based route for sessions; extend as needed."
+  },
+
+  // South West — Bournemouth
+  {
+    id: "sw-bmth-seafront",
+    regionSlug: "south-west",
+    areaSlug: "sw-bournemouth",
+    name: "Seafront long straight",
+    distanceKm: 8,
+    terrain: "Road",
+    vibe: "Perfect rhythm running — unless wind disagrees.",
+    notes: "Out-and-back is simplest; great for progression runs."
+  },
+  {
+    id: "sw-bmth-woodland",
+    regionSlug: "south-west",
+    areaSlug: "sw-bournemouth",
+    name: "Woodland shelter loop",
+    distanceKm: 9.5,
+    terrain: "Trail",
+    vibe: "Sheltered and forgiving underfoot.",
+    notes: "Ideal when it’s gusty; expect some mud after rain."
+  },
+
+  // ======================
+  // SCOTLAND — Glasgow
+  // ======================
+  {
+    id: "scot-gla-kelvingrove",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-glasgow",
+    name: "Kelvingrove + riverside",
+    distanceKm: 8.5,
+    terrain: "Road",
+    vibe: "City park energy + flat riverside miles.",
+    notes: "Good lighting, good vibes, easy to extend."
+  },
+  {
+    id: "scot-gla-canal",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-glasgow",
+    name: "Canal path steady",
+    distanceKm: 12,
+    terrain: "Trail",
+    vibe: "Flat and steady, perfect for easy miles.",
+    notes: "Watch for mud after rain; sheltered when windy."
+  },
+
+  // Scotland — Edinburgh
+  {
+    id: "scot-edi-arthurs-seat",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-edinburgh",
+    name: "Holyrood / Arthur’s Seat loop",
+    distanceKm: 8,
+    terrain: "Trail",
+    vibe: "Hilly, iconic, and extremely honest.",
+    notes: "Trail shoes help. Keep effort easy unless you want a workout."
+  },
+  {
+    id: "scot-edi-water-of-leith",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-edinburgh",
+    name: "Water of Leith cruise",
+    distanceKm: 10,
+    terrain: "Mixed",
+    vibe: "Sheltered and steady with nice scenery.",
+    notes: "Some narrow sections; mornings are quieter."
+  },
+
+  // Scotland — Stirling
+  {
+    id: "scot-sti-riverside",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-stirling",
+    name: "Riverside easy",
+    distanceKm: 7,
+    terrain: "Road",
+    vibe: "Calm, flat, and very runnable.",
+    notes: "Great for easy days; extend with extra out-and-back."
+  },
+  {
+    id: "scot-sti-hill-tester",
+    regionSlug: "scotland-central-belt",
+    areaSlug: "scot-stirling",
+    name: "Castle hill tester",
+    distanceKm: 6.5,
+    terrain: "Mixed",
+    vibe: "Short but punchy — good strength stimulus.",
+    notes: "Keep it controlled; this one adds spice quickly."
+  },
+
+  // ======================
+  // WALES — Cardiff
+  // ======================
+  {
+    id: "wales-cardiff-bay",
     regionSlug: "wales-south",
     areaSlug: "wales-cardiff",
     name: "Cardiff Bay loop-ish",
     distanceKm: 10.5,
     terrain: "Road",
     vibe: "Sea air and long straights, good for rhythm.",
-    notes: "Can feel exposed in strong winds; great at sunrise or sunset."
+    notes: "Can feel exposed in strong winds; great at sunrise/sunset."
   },
   {
-    id: "wales-cardiff-park",
+    id: "wales-cardiff-taff-trail",
     regionSlug: "wales-south",
     areaSlug: "wales-cardiff",
-    name: "Bute Park easy loops",
-    distanceKm: 7.2,
-    terrain: "Mixed",
-    vibe: "Parkland miles that feel calm and repeatable.",
-    notes: "Good for easy days; extend with extra laps."
+    name: "Taff Trail steady",
+    distanceKm: 12,
+    terrain: "Trail",
+    vibe: "Flat and extendable — perfect for longer easy runs.",
+    notes: "Surface varies; good option when roads are busy."
   },
+
+  // Wales — Swansea
   {
-    id: "wales-swansea-bay",
+    id: "wales-swansea-seafront",
     regionSlug: "wales-south",
     areaSlug: "wales-swansea",
     name: "Swansea Bay out-and-back",
+    distanceKm: 8,
+    terrain: "Road",
+    vibe: "Straight, flat, and very paceable.",
+    notes: "Wind can turn this into a session; pick direction wisely."
+  },
+  {
+    id: "wales-swansea-park",
+    regionSlug: "wales-south",
+    areaSlug: "wales-swansea",
+    name: "Park loops (session base)",
+    distanceKm: 6,
+    terrain: "Mixed",
+    vibe: "Reliable loop for intervals or tempos.",
+    notes: "Loop-based: add blocks without thinking too hard."
+  },
+
+  // Wales — Newport
+  {
+    id: "wales-newport-river",
+    regionSlug: "wales-south",
+    areaSlug: "wales-newport",
+    name: "Riverside steady",
     distanceKm: 9,
     terrain: "Road",
-    vibe: "Flat coastal miles, wind dependent difficulty.",
-    notes: "Best early; exposed if gusty."
+    vibe: "Easy pacing with long straights.",
+    notes: "Good for steady runs; extend as needed."
+  },
+  {
+    id: "wales-newport-wetlands",
+    regionSlug: "wales-south",
+    areaSlug: "wales-newport",
+    name: "Wetlands easy trail",
+    distanceKm: 7.5,
+    terrain: "Trail",
+    vibe: "Quiet and sheltered — good for easy days.",
+    notes: "Trail shoes after rain; great if you want calm miles."
   }
 ];
