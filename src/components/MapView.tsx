@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Region } from "@/lib/regions";
 import type { PointWeather } from "@/lib/weather-types";
 import { UK_CITIES } from "@/lib/uk-cities";
+
+export type HeatmapMode = "none" | "rain" | "gusts" | "feelslike";
 
 type Props = {
   region: Region;
@@ -18,32 +20,185 @@ type Props = {
   autoFit?: boolean;
 
   /**
-   * Increment this value to force a re-fit even if the region slug didn't change
-   * (e.g. user re-selects "London").
+   * Increment this value to force a re-fit even if the region slug didn't change.
    */
   fitKey?: number;
+
+  /**
+   * Heatmap overlay mode.
+   */
+  heatmapMode?: HeatmapMode;
 };
 
 const SOURCE_ID = "run-points";
 const LAYER_ID = "run-points-layer";
 
+const HEATMAP_LAYER_ID = "run-heatmap-layer";
+
 const CITIES_SOURCE_ID = "uk-cities";
 const CITIES_LAYER_ID = "uk-cities-layer";
 const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
 
-export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) {
+export function MapView({
+  region,
+  points,
+  autoFit = false,
+  fitKey = 0,
+  heatmapMode = "none"
+}: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
+  // Memoize paint based on mode so we can update it without recreating the map
+  const heatmapPaint = useMemo(() => {
+    // We store values in properties:
+    // - heat_rain: 0..100 (precip prob)
+    // - heat_gusts: km/h (gusts)
+    // - heat_feels: °C (apparent temp)
+    //
+    // We convert each to a 0..1 "intensity" via interpolate.
+
+    if (heatmapMode === "rain") {
+      return {
+        // Intensity/weight from precipitation probability
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["get", "heat_rain"],
+          0,
+          0,
+          100,
+          1
+        ],
+        "heatmap-intensity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          0.6,
+          10,
+          1.2,
+          14,
+          2
+        ],
+        "heatmap-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          12,
+          10,
+          24,
+          14,
+          40
+        ],
+        "heatmap-opacity": 0.75
+      } as const;
+    }
+
+    if (heatmapMode === "gusts") {
+      return {
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["get", "heat_gusts"],
+          0,
+          0,
+          30,
+          0.3,
+          60,
+          0.7,
+          90,
+          1
+        ],
+        "heatmap-intensity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          0.6,
+          10,
+          1.2,
+          14,
+          2
+        ],
+        "heatmap-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          12,
+          10,
+          24,
+          14,
+          40
+        ],
+        "heatmap-opacity": 0.75
+      } as const;
+    }
+
+    if (heatmapMode === "feelslike") {
+      // For feels-like, “interesting” is extremes.
+      // We map mid temps to lower weight, and cold/hot to higher.
+      return {
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["get", "heat_feels"],
+          // very cold
+          -5,
+          1,
+          // cool
+          5,
+          0.4,
+          // comfy mid
+          12,
+          0.2,
+          // warm
+          20,
+          0.5,
+          // hot
+          28,
+          1
+        ],
+        "heatmap-intensity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          0.6,
+          10,
+          1.2,
+          14,
+          2
+        ],
+        "heatmap-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4,
+          12,
+          10,
+          24,
+          14,
+          40
+        ],
+        "heatmap-opacity": 0.75
+      } as const;
+    }
+
+    return null;
+  }, [heatmapMode]);
+
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
-  
-    // ✅ Choose MapTiler if key exists, otherwise fallback
+
+    // ✅ MapTiler style with fallback (keep this if you already added it)
     const styleUrl =
       process.env.NEXT_PUBLIC_MAPTILER_KEY
         ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`
         : "https://demotiles.maplibre.org/style.json";
-  
+
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
       style: styleUrl,
@@ -63,11 +218,29 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
     });
 
     map.on("load", () => {
+      // --- Points source (shared by dots + heatmap) ---
       map.addSource(SOURCE_ID, {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] }
       });
 
+      // --- Heatmap layer (initially hidden; we toggle visibility) ---
+      map.addLayer({
+        id: HEATMAP_LAYER_ID,
+        type: "heatmap",
+        source: SOURCE_ID,
+        layout: {
+          visibility: "none"
+        },
+        paint: {
+          "heatmap-weight": 0,
+          "heatmap-intensity": 1,
+          "heatmap-radius": 20,
+          "heatmap-opacity": 0.75
+        }
+      });
+
+      // --- Run points (your scored green/orange/red dots) ---
       map.addLayer({
         id: LAYER_ID,
         type: "circle",
@@ -89,6 +262,7 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
         }
       });
 
+      // --- UK cities (always visible labels) ---
       map.addSource(CITIES_SOURCE_ID, {
         type: "geojson",
         data: {
@@ -132,6 +306,7 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
         }
       });
 
+      // --- Hover behavior for run points ---
       map.on("mousemove", LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
 
@@ -213,7 +388,7 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
     };
   }, []);
 
-  // ✅ Fit on selection AND allow re-fit via fitKey bump (even if same region)
+  // Fit to region only when enabled
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -229,6 +404,7 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
     );
   }, [autoFit, fitKey, region.bbox, region.slug]);
 
+  // Update GeoJSON data (dots + heatmap use same source)
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -250,7 +426,12 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
         precipitation: p.selected.precipitation,
         precipitationProbability: p.selected.precipitationProbability,
         windspeed: p.selected.windspeed,
-        windgusts: p.selected.windgusts
+        windgusts: p.selected.windgusts,
+
+        // Heatmap properties (numeric)
+        heat_rain: p.selected.precipitationProbability,
+        heat_gusts: p.selected.windgusts,
+        heat_feels: p.selected.apparentTemperature
       }
     }));
 
@@ -260,18 +441,54 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
     });
   }, [points]);
 
+  // Toggle heatmap visibility + paint based on mode
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (!map.getLayer(HEATMAP_LAYER_ID)) return;
+
+    if (heatmapMode === "none" || !heatmapPaint) {
+      map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "none");
+      return;
+    }
+
+    map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "visible");
+
+    // Apply paint props (only the ones we set)
+    for (const [k, v] of Object.entries(heatmapPaint)) {
+      map.setPaintProperty(HEATMAP_LAYER_ID, k as any, v as any);
+    }
+  }, [heatmapMode, heatmapPaint]);
+
   return (
     <div className="flex h-full flex-col gap-2">
       <div
         ref={mapContainerRef}
         className="h-[420px] w-full rounded-2xl border border-sky-200 bg-slate-200 shadow-sm md:h-[520px]"
       />
-      <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[11px] text-slate-600 shadow-sm">
-        <span className="font-semibold uppercase tracking-wide">Score legend</span>
-        <LegendDot color="#16a34a" label="80–100 Great" />
-        <LegendDot color="#0ea5e9" label="60–79 OK" />
-        <LegendDot color="#f97316" label="40–59 Caution" />
-        <LegendDot color="#e11d48" label="0–39 Avoid" />
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[11px] text-slate-600 shadow-sm">
+          <span className="font-semibold uppercase tracking-wide">Score legend</span>
+          <LegendDot color="#16a34a" label="80–100 Great" />
+          <LegendDot color="#0ea5e9" label="60–79 OK" />
+          <LegendDot color="#f97316" label="40–59 Caution" />
+          <LegendDot color="#e11d48" label="0–39 Avoid" />
+        </div>
+
+        {heatmapMode !== "none" && (
+          <div className="rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[11px] text-slate-600 shadow-sm">
+            Heatmap:{" "}
+            <span className="font-semibold text-slate-900">
+              {heatmapMode === "rain"
+                ? "Rain chance"
+                : heatmapMode === "gusts"
+                ? "Wind gusts"
+                : "Feels-like"}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { REGIONS, getRegionBySlug } from "@/lib/regions";
 import { buildAdvice } from "@/lib/advice";
-import { MapView } from "@/components/MapView";
+import { MapView, type HeatmapMode } from "@/components/MapView";
 import { RegionSelect } from "@/components/RegionSelect";
 import { TimeScrubber } from "@/components/TimeScrubber";
 import { RunPanel } from "@/components/RunPanel";
@@ -18,13 +18,15 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
   const [regionSlug, setRegionSlug] = useState(initialRegionSlug);
   const [hourOffset, setHourOffset] = useState(0);
 
-  // Start UK-wide (no auto-zoom) and only auto-fit after the user interacts
+  // Start UK-wide (no auto-zoom) and only auto-fit after the user changes region
   const [hasUserSelectedRegion, setHasUserSelectedRegion] = useState(false);
 
-  // bump this to force a refit even if the slug doesn't change
+  // bump this to force a refit even if the slug doesn't change (still handy)
   const [fitKey, setFitKey] = useState(0);
 
-  // If the route slug changes away from the initial value, enable auto-fit.
+  // Lane B: heatmap mode
+  const [heatmapMode, setHeatmapMode] = useState<HeatmapMode>("none");
+
   useEffect(() => {
     if (regionSlug !== initialRegionSlug) setHasUserSelectedRegion(true);
   }, [regionSlug, initialRegionSlug]);
@@ -50,7 +52,8 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
               running areas rather than random motorways.
             </p>
           </div>
-          <div className="flex flex-wrap gap-3 md:justify-end">
+
+          <div className="flex flex-wrap items-end gap-3 md:justify-end">
             <RegionSelect
               value={region.slug}
               onChange={(newSlug) => {
@@ -58,13 +61,30 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
                 setFitKey((k) => k + 1);
                 setRegionSlug(newSlug);
               }}
-              onFocus={() => {
-                // ✅ This fixes "London selected again should zoom"
-                setHasUserSelectedRegion(true);
-                setFitKey((k) => k + 1);
-              }}
             />
+
             <TimeScrubber value={hourOffset} onChange={setHourOffset} />
+
+            {/* Lane B: heatmap toggle */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                Overlay
+              </label>
+              <div className="inline-flex overflow-hidden rounded-full border border-sky-200 bg-white shadow-sm">
+                <HeatBtn active={heatmapMode === "none"} onClick={() => setHeatmapMode("none")}>
+                  None
+                </HeatBtn>
+                <HeatBtn active={heatmapMode === "rain"} onClick={() => setHeatmapMode("rain")}>
+                  Rain
+                </HeatBtn>
+                <HeatBtn active={heatmapMode === "gusts"} onClick={() => setHeatmapMode("gusts")}>
+                  Gusts
+                </HeatBtn>
+                <HeatBtn active={heatmapMode === "feelslike"} onClick={() => setHeatmapMode("feelslike")}>
+                  Feels
+                </HeatBtn>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -73,6 +93,7 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
           points={data?.points ?? null}
           autoFit={hasUserSelectedRegion}
           fitKey={fitKey}
+          heatmapMode={heatmapMode}
         />
       </section>
 
@@ -108,5 +129,28 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
         )}
       </section>
     </div>
+  );
+}
+
+function HeatBtn({
+  active,
+  onClick,
+  children
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "px-3 py-1.5 text-sm",
+        active ? "bg-sky-50 text-slate-900 font-semibold" : "text-slate-700 hover:bg-slate-50"
+      ].join(" ")}
+    >
+      {children}
+    </button>
   );
 }
