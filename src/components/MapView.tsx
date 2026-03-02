@@ -51,20 +51,51 @@ export function MapView({
   const heatmapPaint = useMemo(() => {
     if (heatmapMode === "rain") {
       return {
-        "heatmap-weight": ["interpolate", ["linear"], ["get", "heat_rain"], 0, 0, 100, 1],
-        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 10, 1.6, 14, 2.4],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28, 14, 44],
-        "heatmap-opacity": 0.85,
+        // Weight based on precipitation probability
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["get", "heat_rain"],
+          0, 0,
+          10, 0.1,
+          30, 0.35,
+          60, 0.7,
+          90, 1
+        ],
+    
+        "heatmap-intensity": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4, 1,
+          8, 1.4,
+          12, 2
+        ],
+    
+        "heatmap-radius": [
+          "interpolate",
+          ["linear"],
+          ["zoom"],
+          4, 25,
+          8, 35,
+          12, 50
+        ],
+    
+        "heatmap-opacity": 0.9,
+    
+        // Proper rain colour ramp (blue only)
         "heatmap-color": [
           "interpolate",
           ["linear"],
           ["heatmap-density"],
+    
           0, "rgba(0,0,0,0)",
-          0.15, "rgba(56,189,248,0.6)",
-          0.35, "rgba(34,197,94,0.75)",
-          0.6, "rgba(250,204,21,0.85)",
-          0.85, "rgba(249,115,22,0.9)",
-          1, "rgba(239,68,68,0.95)"
+    
+          0.15, "rgba(191,219,254,0.5)",   // very light blue
+          0.35, "rgba(96,165,250,0.7)",    // medium blue
+          0.6, "rgba(37,99,235,0.85)",     // strong blue
+          0.85, "rgba(30,64,175,0.95)",    // dark blue
+          1, "rgba(49,46,129,1)"           // deep indigo
         ]
       } as const;
     }
