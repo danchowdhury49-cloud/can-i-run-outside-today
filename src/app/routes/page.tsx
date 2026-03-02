@@ -1,6 +1,6 @@
 import { REGIONS } from "@/lib/regions";
 import { ROUTE_STUBS } from "@/lib/routes-data";
-import { AREAS, getAreasForRegion } from "@/lib/areas";
+import { getAreasForRegion, type Area } from "@/lib/areas";
 
 type RouteStub = (typeof ROUTE_STUBS)[number];
 
@@ -65,7 +65,7 @@ export default function RoutesPage() {
               {/* Areas list */}
               {areas.length > 0 && (
                 <div className="mt-2 space-y-3">
-                  {areas.map((area) => {
+                  {areas.map((area: Area) => {
                     const areaRoutes = byArea.get(area.slug) ?? [];
                     return (
                       <div

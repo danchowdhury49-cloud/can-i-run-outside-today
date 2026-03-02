@@ -12,21 +12,34 @@ import { useWeather } from "@/hooks/useWeather";
 
 type Props = {
   initialRegionSlug?: string;
+
+  // NEW
+  initialAutoFit?: boolean;
+
+  // NEW (used when arriving via /regions/[slug]?focus=areaSlug)
+  initialFocusAreaSlug?: string;
 };
 
-export function HomeView({ initialRegionSlug = "london" }: Props) {
+export function HomeView({
+  initialRegionSlug = "london",
+  initialAutoFit = false,
+  initialFocusAreaSlug
+}: Props) {
   const [regionSlug, setRegionSlug] = useState(initialRegionSlug);
   const [hourOffset, setHourOffset] = useState(0);
 
-  const [hasUserSelectedRegion, setHasUserSelectedRegion] = useState(false);
+  const [hasUserSelectedRegion, setHasUserSelectedRegion] = useState(initialAutoFit);
   const [fitKey, setFitKey] = useState(0);
 
+  // NEW: focus area slug (optional)
+  const [focusAreaSlug, setFocusAreaSlug] = useState<string | undefined>(initialFocusAreaSlug);
+
   useEffect(() => {
+    // If the route slug changes away from the initial value, enable auto-fit.
     if (regionSlug !== initialRegionSlug) setHasUserSelectedRegion(true);
   }, [regionSlug, initialRegionSlug]);
 
   const region = getRegionBySlug(regionSlug) ?? REGIONS[0];
-
   const { data, loading, error } = useWeather(region.slug, hourOffset);
 
   const advice = useMemo(
@@ -48,16 +61,18 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
             </p>
           </div>
 
-          <div className="flex flex-wrap items-end gap-3 md:justify-end">
+          <div className="flex flex-wrap gap-3 md:justify-end">
             <RegionSelect
               value={region.slug}
               onChange={(newSlug) => {
                 setHasUserSelectedRegion(true);
                 setFitKey((k) => k + 1);
                 setRegionSlug(newSlug);
+
+                // When user changes region manually, clear area focus
+                setFocusAreaSlug(undefined);
               }}
             />
-
             <TimeScrubber value={hourOffset} onChange={setHourOffset} />
           </div>
         </div>
@@ -67,6 +82,7 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
           points={data?.points ?? null}
           autoFit={hasUserSelectedRegion}
           fitKey={fitKey}
+          focusAreaSlug={focusAreaSlug}
         />
       </section>
 
@@ -89,8 +105,8 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
         <div className="rounded-2xl border border-dashed border-sky-200 bg-white/70 p-3 text-[11px] text-slate-600">
           <div className="mb-1 font-semibold uppercase tracking-wide">Notes</div>
           <p>
-            Iteration 1: curated markers + a more detailed basemap. Future
-            versions will add richer overlays when they’re genuinely useful.
+            This is Iteration 1. Map markers use simple point samples; future
+            versions will add richer overlays and more granular session types.
           </p>
         </div>
 

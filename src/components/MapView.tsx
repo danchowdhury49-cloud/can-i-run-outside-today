@@ -6,12 +6,17 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Region } from "@/lib/regions";
 import type { PointWeather } from "@/lib/weather-types";
 import { UK_CITIES } from "@/lib/uk-cities";
+import { getAreaBySlug } from "@/lib/areas";
 
 type Props = {
   region: Region;
   points: PointWeather[] | null;
+
   autoFit?: boolean;
   fitKey?: number;
+
+  // NEW: optional area focus (from /regions/[slug]?focus=areaSlug)
+  focusAreaSlug?: string;
 };
 
 const SOURCE_ID = "run-points";
@@ -25,7 +30,8 @@ export function MapView({
   region,
   points,
   autoFit = false,
-  fitKey = 0
+  fitKey = 0,
+  focusAreaSlug
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
@@ -57,7 +63,6 @@ export function MapView({
     });
 
     map.on("load", () => {
-      // --- Marker source ---
       map.addSource(SOURCE_ID, {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] }
@@ -84,17 +89,13 @@ export function MapView({
         }
       });
 
-      // --- Cities ---
       map.addSource(CITIES_SOURCE_ID, {
         type: "geojson",
         data: {
           type: "FeatureCollection",
           features: UK_CITIES.map((c) => ({
             type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [c.lon, c.lat]
-            },
+            geometry: { type: "Point" as const, coordinates: [c.lon, c.lat] },
             properties: { name: c.name }
           }))
         }
@@ -131,7 +132,6 @@ export function MapView({
         }
       });
 
-      // --- Hover popups ---
       map.on("mousemove", LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
 
@@ -151,14 +151,14 @@ export function MapView({
             <div class="font-semibold mb-1">${props.name}</div>
             <div><b>Score:</b> ${props.score}/100</div>
             <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(
-          props.apparentTemperature
-        ).toFixed(1)}°C</div>
-            <div>Rain: ${Number(props.precipitationProbability).toFixed(
-              0
-            )}% · ${Number(props.precipitation).toFixed(1)}mm</div>
-            <div>Wind: ${Number(props.windspeed).toFixed(
-              0
-            )} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
+              props.apparentTemperature
+            ).toFixed(1)}°C</div>
+            <div>Rain: ${Number(props.precipitationProbability).toFixed(0)}% · ${Number(
+              props.precipitation
+            ).toFixed(1)}mm</div>
+            <div>Wind: ${Number(props.windspeed).toFixed(0)} km/h · gusts ${Number(
+              props.windgusts
+            ).toFixed(0)} km/h</div>
           </div>
         `;
 
@@ -179,12 +179,20 @@ export function MapView({
     };
   }, []);
 
-  // --- Fit to region ---
+  // ✅ Fit to area bbox (if provided) otherwise region bbox
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !autoFit) return;
+    if (!map) return;
+    if (!autoFit) return;
 
-    const [minLon, minLat, maxLon, maxLat] = region.bbox;
+    const focusArea = focusAreaSlug ? getAreaBySlug(focusAreaSlug) : undefined;
+
+    const bbox =
+      focusArea && focusArea.bbox
+        ? focusArea.bbox
+        : region.bbox;
+
+    const [minLon, minLat, maxLon, maxLat] = bbox;
 
     map.fitBounds(
       [
@@ -193,17 +201,14 @@ export function MapView({
       ],
       { padding: 32, duration: 500 }
     );
-  }, [autoFit, fitKey, region.bbox, region.slug]);
+  }, [autoFit, fitKey, region.bbox, region.slug, focusAreaSlug]);
 
-  // --- Update marker data ---
+  // keep marker data in sync
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const source = map.getSource(SOURCE_ID) as
-      | maplibregl.GeoJSONSource
-      | undefined;
-
+    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!source) return;
 
     const features = (points ?? []).map((p) => ({
@@ -224,10 +229,7 @@ export function MapView({
       }
     }));
 
-    source.setData({
-      type: "FeatureCollection",
-      features
-    });
+    source.setData({ type: "FeatureCollection", features });
   }, [points]);
 
   return (
@@ -237,9 +239,7 @@ export function MapView({
         className="h-[420px] w-full rounded-2xl border border-sky-200 bg-slate-200 shadow-sm md:h-[520px]"
       />
       <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[11px] text-slate-600 shadow-sm">
-        <span className="font-semibold uppercase tracking-wide">
-          Score legend
-        </span>
+        <span className="font-semibold uppercase tracking-wide">Score legend</span>
         <LegendDot color="#16a34a" label="80–100 Great" />
         <LegendDot color="#0ea5e9" label="60–79 OK" />
         <LegendDot color="#f97316" label="40–59 Caution" />

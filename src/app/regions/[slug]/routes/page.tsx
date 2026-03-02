@@ -38,21 +38,21 @@ export default async function RegionRoutesByAreaPage({ params }: PageProps) {
             {region.name} routes by area
           </h1>
           <p className="text-sm text-slate-600">
-            Pick an area to see local routes. (This is the “less vague” view.)
+            Pick an area, then tap a route to open the map and zoom in.
           </p>
         </div>
 
         <Link
-          href="/routes"
+          href={`/regions/${region.slug}`}
           className="rounded-full border border-sky-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm hover:bg-slate-50"
         >
-          View all UK routes
+          Open map
         </Link>
       </div>
 
       {areas.length === 0 ? (
         <div className="rounded-2xl border border-sky-200 bg-white/80 p-3 text-sm text-slate-700">
-          Areas haven’t been added for this region yet.
+          No areas defined for this region yet.
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -88,10 +88,20 @@ export default async function RegionRoutesByAreaPage({ params }: PageProps) {
                             {route.distanceKm.toFixed(1)} km · {route.terrain}
                           </span>
                         </div>
+
                         <p className="mt-1 text-slate-700">{route.vibe}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
                           {route.notes}
                         </p>
+
+                        <div className="mt-2">
+                          <Link
+                            href={`/regions/${region.slug}?focus=${area.slug}`}
+                            className="inline-flex rounded-full border border-sky-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                          >
+                            View on map
+                          </Link>
+                        </div>
                       </li>
                     ))}
                   </ul>
