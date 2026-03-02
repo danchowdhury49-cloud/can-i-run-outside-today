@@ -18,15 +18,15 @@ function formatClock(offset: number): string {
 export function TimeScrubber({ value, onChange }: Props) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between text-xs">
-        <div className="font-semibold uppercase tracking-wide text-slate-600">
-          Time window
-        </div>
-        <div className="text-slate-600">
-          {formatOffsetLabel(value)} &middot;{" "}
-          <span className="font-medium">{formatClock(value)}</span>
-        </div>
-      </div>
+      <div className="flex items-baseline justify-between gap-3 text-xs">
+  <span className="font-semibold uppercase tracking-wide text-slate-600">
+    Time window
+  </span>
+  <span className="text-slate-600 whitespace-nowrap">
+    {formatOffsetLabel(value)} &middot;{" "}
+    <span className="font-medium">{formatClock(value)}</span>
+  </span>
+</div>
       <input
         type="range"
         min={0}
