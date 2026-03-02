@@ -18,14 +18,13 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
   const [regionSlug, setRegionSlug] = useState(initialRegionSlug);
   const [hourOffset, setHourOffset] = useState(0);
 
-  // Start UK-wide (no auto-zoom) and only auto-fit after the user changes region
+  // Start UK-wide (no auto-zoom) and only auto-fit after the user interacts
   const [hasUserSelectedRegion, setHasUserSelectedRegion] = useState(false);
 
-  // ✅ NEW: bump this to force a refit even if the slug doesn't change
+  // bump this to force a refit even if the slug doesn't change
   const [fitKey, setFitKey] = useState(0);
 
   // If the route slug changes away from the initial value, enable auto-fit.
-  // (This avoids auto-zooming on first render when default is London.)
   useEffect(() => {
     if (regionSlug !== initialRegionSlug) setHasUserSelectedRegion(true);
   }, [regionSlug, initialRegionSlug]);
@@ -55,13 +54,14 @@ export function HomeView({ initialRegionSlug = "london" }: Props) {
             <RegionSelect
               value={region.slug}
               onChange={(newSlug) => {
-                // selecting a region should focus/zoom to it
                 setHasUserSelectedRegion(true);
-
-                // ✅ NEW: always bump fitKey so picking the same region can re-zoom
                 setFitKey((k) => k + 1);
-
                 setRegionSlug(newSlug);
+              }}
+              onFocus={() => {
+                // ✅ This fixes "London selected again should zoom"
+                setHasUserSelectedRegion(true);
+                setFitKey((k) => k + 1);
               }}
             />
             <TimeScrubber value={hourOffset} onChange={setHourOffset} />
