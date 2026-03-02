@@ -14,7 +14,7 @@ type Props = {
   region: Region;
   points: PointWeather[] | null;
 
-  // NEW: grid points for heatmap when zoomed out
+  // grid points for heatmap when zoomed out
   gridPoints: GridPoint[] | null;
 
   autoFit?: boolean;
@@ -31,6 +31,9 @@ const HEATMAP_LAYER_ID = "run-heatmap-layer";
 const CITIES_SOURCE_ID = "uk-cities";
 const CITIES_LAYER_ID = "uk-cities-layer";
 const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
+
+const RADAR_SOURCE_ID = "radar-source";
+const RADAR_LAYER_ID = "radar-layer";
 
 const ZOOM_SWITCH = 11; // <11 = grid, >=11 = curated points heatmap
 
@@ -49,60 +52,24 @@ export function MapView({
   const useCuratedForHeatRef = useRef(false);
 
   const heatmapPaint = useMemo(() => {
-    if (heatmapMode === "rain") {
+    // IMPORTANT: "rain" is now handled by RADAR tiles, not heatmap
+    if (heatmapMode === "gusts") {
       return {
-        // Weight based on precipitation probability
         "heatmap-weight": [
           "interpolate",
           ["linear"],
-          ["get", "heat_rain"],
-          0, 0,
-          10, 0.1,
-          30, 0.35,
-          60, 0.7,
-          90, 1
+          ["get", "heat_gusts"],
+          0,
+          0,
+          25,
+          0.2,
+          45,
+          0.5,
+          65,
+          0.8,
+          85,
+          1
         ],
-    
-        "heatmap-intensity": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          4, 1,
-          8, 1.4,
-          12, 2
-        ],
-    
-        "heatmap-radius": [
-          "interpolate",
-          ["linear"],
-          ["zoom"],
-          4, 25,
-          8, 35,
-          12, 50
-        ],
-    
-        "heatmap-opacity": 0.9,
-    
-        // Proper rain colour ramp (blue only)
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-    
-          0, "rgba(0,0,0,0)",
-    
-          0.15, "rgba(191,219,254,0.5)",   // very light blue
-          0.35, "rgba(96,165,250,0.7)",    // medium blue
-          0.6, "rgba(37,99,235,0.85)",     // strong blue
-          0.85, "rgba(30,64,175,0.95)",    // dark blue
-          1, "rgba(49,46,129,1)"           // deep indigo
-        ]
-      } as const;
-    }
-
-    if (heatmapMode === "gusts") {
-      return {
-        "heatmap-weight": ["interpolate", ["linear"], ["get", "heat_gusts"], 0, 0, 25, 0.2, 45, 0.5, 65, 0.8, 85, 1],
         "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 10, 1.6, 14, 2.4],
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28, 14, 44],
         "heatmap-opacity": 0.85,
@@ -110,19 +77,39 @@ export function MapView({
           "interpolate",
           ["linear"],
           ["heatmap-density"],
-          0, "rgba(0,0,0,0)",
-          0.15, "rgba(34,197,94,0.6)",
-          0.35, "rgba(56,189,248,0.75)",
-          0.6, "rgba(250,204,21,0.85)",
-          0.85, "rgba(249,115,22,0.9)",
-          1, "rgba(239,68,68,0.95)"
+          0,
+          "rgba(0,0,0,0)",
+          0.15,
+          "rgba(34,197,94,0.6)",
+          0.35,
+          "rgba(56,189,248,0.75)",
+          0.6,
+          "rgba(250,204,21,0.85)",
+          0.85,
+          "rgba(249,115,22,0.9)",
+          1,
+          "rgba(239,68,68,0.95)"
         ]
       } as const;
     }
 
     if (heatmapMode === "feelslike") {
       return {
-        "heatmap-weight": ["interpolate", ["linear"], ["get", "heat_feels"], -5, 1, 5, 0.6, 12, 0.25, 20, 0.6, 28, 1],
+        "heatmap-weight": [
+          "interpolate",
+          ["linear"],
+          ["get", "heat_feels"],
+          -5,
+          1,
+          5,
+          0.6,
+          12,
+          0.25,
+          20,
+          0.6,
+          28,
+          1
+        ],
         "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 10, 1.6, 14, 2.4],
         "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28, 14, 44],
         "heatmap-opacity": 0.85,
@@ -130,12 +117,18 @@ export function MapView({
           "interpolate",
           ["linear"],
           ["heatmap-density"],
-          0, "rgba(0,0,0,0)",
-          0.2, "rgba(59,130,246,0.75)",
-          0.45, "rgba(34,197,94,0.65)",
-          0.7, "rgba(250,204,21,0.85)",
-          0.9, "rgba(249,115,22,0.9)",
-          1, "rgba(239,68,68,0.95)"
+          0,
+          "rgba(0,0,0,0)",
+          0.2,
+          "rgba(59,130,246,0.75)",
+          0.45,
+          "rgba(34,197,94,0.65)",
+          0.7,
+          "rgba(250,204,21,0.85)",
+          0.9,
+          "rgba(249,115,22,0.9)",
+          1,
+          "rgba(239,68,68,0.95)"
         ]
       } as const;
     }
@@ -235,7 +228,28 @@ export function MapView({
         data: { type: "FeatureCollection", features: [] }
       });
 
-      // heatmap layer
+      // --- Radar / precipitation tiles (RainViewer) ---
+      map.addSource(RADAR_SOURCE_ID, {
+        type: "raster",
+        tiles: [
+          // latest frame (simple, static); we can animate later
+          "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png"
+        ],
+        tileSize: 256
+      });
+
+      // Put radar UNDER markers, above basemap
+      map.addLayer({
+        id: RADAR_LAYER_ID,
+        type: "raster",
+        source: RADAR_SOURCE_ID,
+        layout: { visibility: "none" },
+        paint: {
+          "raster-opacity": 0.65
+        }
+      });
+
+      // heatmap layer (for gusts/feels)
       map.addLayer({
         id: HEATMAP_LAYER_ID,
         type: "heatmap",
@@ -315,7 +329,7 @@ export function MapView({
         }
       });
 
-      // zoom switch logic
+      // zoom switch logic (for gusts/feels heatmap only)
       const refreshZoomMode = () => {
         useCuratedForHeatRef.current = map.getZoom() >= ZOOM_SWITCH;
         updateHeatSource();
@@ -323,7 +337,7 @@ export function MapView({
       refreshZoomMode();
       map.on("zoomend", refreshZoomMode);
 
-      // marker hover popup (unchanged)
+      // marker hover popup
       map.on("mousemove", LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
         const feature = e.features?.[0];
@@ -427,7 +441,6 @@ export function MapView({
 
     source.setData({ type: "FeatureCollection", features });
 
-    // curated may also be used for heatmap at high zoom
     updateHeatSource();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [points]);
@@ -438,24 +451,34 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridPoints]);
 
-  // Toggle heatmap visibility + paint
+  // Toggle overlays:
+  // - Rain = Radar tiles
+  // - Gusts/Feels = Heatmap
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    if (!map.getLayer(HEATMAP_LAYER_ID)) return;
 
-    if (heatmapMode === "none" || !heatmapPaint) {
-      map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "none");
+    const hasHeat = !!map.getLayer(HEATMAP_LAYER_ID);
+    const hasRadar = !!map.getLayer(RADAR_LAYER_ID);
+
+    // Hide both to start
+    if (hasHeat) map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "none");
+    if (hasRadar) map.setLayoutProperty(RADAR_LAYER_ID, "visibility", "none");
+
+    if (heatmapMode === "none") return;
+
+    if (heatmapMode === "rain") {
+      if (hasRadar) map.setLayoutProperty(RADAR_LAYER_ID, "visibility", "visible");
       return;
     }
 
-    map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "visible");
+    if (!hasHeat || !heatmapPaint) return;
 
+    map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "visible");
     for (const [k, v] of Object.entries(heatmapPaint)) {
       map.setPaintProperty(HEATMAP_LAYER_ID, k as any, v as any);
     }
 
-    // Ensure data is up to date when overlay toggles on
     updateHeatSource();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [heatmapMode, heatmapPaint]);
@@ -474,7 +497,11 @@ export function MapView({
         <LegendDot color="#f97316" label="40–59 Caution" />
         <LegendDot color="#e11d48" label="0–39 Avoid" />
         {heatmapMode !== "none" && (
-          <span className="ml-2 opacity-80">(heatmap switches to curated at zoom ≥ {ZOOM_SWITCH})</span>
+          <span className="ml-2 opacity-80">
+            {heatmapMode === "rain"
+              ? "(rain uses radar tiles)"
+              : `(heatmap switches to curated at zoom ≥ ${ZOOM_SWITCH})`}
+          </span>
         )}
       </div>
     </div>
@@ -484,7 +511,10 @@ export function MapView({
 function LegendDot({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1">
-      <span className="inline-block h-2.5 w-2.5 rounded-full border border-white shadow" style={{ backgroundColor: color }} />
+      <span
+        className="inline-block h-2.5 w-2.5 rounded-full border border-white shadow"
+        style={{ backgroundColor: color }}
+      />
       <span>{label}</span>
     </span>
   );
