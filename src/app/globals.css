@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  @apply bg-skysoft text-slate-900 font-sans;
+}
+
+body {
+  @apply antialiased;
+}
+
+a {
+  @apply text-primary hover:underline;
+}
+
