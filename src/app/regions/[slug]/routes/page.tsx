@@ -6,6 +6,12 @@ import { getAreasForRegion, type Area } from "@/lib/areas";
 
 type RouteStub = (typeof ROUTE_STUBS)[number];
 
+type PageProps = {
+  params: Promise<{
+    slug: string;
+  }>;
+};
+
 function groupByArea(routes: RouteStub[]) {
   const map = new Map<string, RouteStub[]>();
   for (const r of routes) {
@@ -17,19 +23,14 @@ function groupByArea(routes: RouteStub[]) {
   return map;
 }
 
-export default function RegionRoutesPage({
-  params
-}: {
-  params: { slug: string };
-}) {
-  const slug = params.slug; // ✅ always a string now
+export default async function RegionRoutesPage({ params }: PageProps) {
+  const { slug } = await params;
 
   const region = getRegionBySlug(slug);
   if (!region) return notFound();
 
   const regionRoutes = ROUTE_STUBS.filter((r) => r.regionSlug === region.slug);
   const areas: Area[] = getAreasForRegion(region.slug);
-
   const byArea = groupByArea(regionRoutes);
 
   return (
@@ -89,11 +90,10 @@ export default function RegionRoutesPage({
                         key={route.id}
                         className="rounded-xl bg-skysoft/60 p-2"
                       >
-                        {/* For now: link to region map. Next step is passing area/route focus params */}
                         <Link
-                          href={`/regions/${region.slug}`}
-                          className="block"
-                        >
+  href={`/regions/${region.slug}?area=${encodeURIComponent(area.slug)}`}
+  className="block"
+>
                           <div className="flex items-center justify-between gap-2">
                             <div className="font-medium text-slate-900">
                               {route.name}
