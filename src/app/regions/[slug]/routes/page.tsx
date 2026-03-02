@@ -3,17 +3,19 @@ import { getRegionBySlug } from "@/lib/regions";
 import { ROUTE_STUBS } from "@/lib/routes-data";
 import { getAreasForRegion } from "@/lib/areas";
 
-// ✅ Use a relative import to avoid "@/..." alias resolution issues here
+// Keep this relative import if your alias resolution was flaky
 import { RegionRoutesClient } from "../../../../components/RegionRoutesClient";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { slug: string };
+  params: Promise<{
+    slug: string;
+  }>;
 };
 
 export default async function RegionRoutesPage({ params }: PageProps) {
-  const { slug } = params;
+  const { slug } = await params;
 
   const region = getRegionBySlug(slug);
   if (!region) return notFound();
