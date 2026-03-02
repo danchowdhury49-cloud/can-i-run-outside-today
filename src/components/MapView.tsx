@@ -11,6 +11,12 @@ import { CHESTER_ROUTE_POINTS } from "@/lib/chester-route-points";
 type Props = {
   region: Region;
   points: PointWeather[] | null;
+
+  /**
+   * If true, the map will fit to the current region bbox.
+   * Set this to false for initial load (UK-wide), then true after user selects a region.
+   */
+  autoFit?: boolean;
 };
 
 const SOURCE_ID = "run-points";
@@ -24,7 +30,7 @@ const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
 const ROUTE_POINTS_SOURCE_ID = "route-points";
 const ROUTE_POINTS_LAYER_ID = "route-points-layer";
 
-export function MapView({ region, points }: Props) {
+export function MapView({ region, points, autoFit = false }: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
 
@@ -35,7 +41,7 @@ export function MapView({ region, points }: Props) {
       container: mapContainerRef.current,
       style: "https://demotiles.maplibre.org/style.json",
 
-      // ✅ Start UK-wide (not region-based)
+      // Start UK-wide (not region-based)
       center: [-2.5, 54.5],
       zoom: 5
     });
@@ -126,10 +132,7 @@ export function MapView({ region, points }: Props) {
         }
       });
 
-      // ============================================================
-      // Chester/Hoole “ideal route” green dots
-      // ============================================================
-
+      // --- Chester/Hoole “ideal route” green dots ---
       map.addSource(ROUTE_POINTS_SOURCE_ID, {
         type: "geojson",
         data: {
@@ -139,7 +142,14 @@ export function MapView({ region, points }: Props) {
             geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
             properties: {
               name: p.name,
-              score: 100
+              score: 100,
+              // No weather attached yet — placeholders for consistent popup
+              temperature: null,
+              apparentTemperature: null,
+              precipitationProbability: null,
+              precipitation: null,
+              windspeed: null,
+              windgusts: null
             }
           }))
         }
@@ -157,6 +167,7 @@ export function MapView({ region, points }: Props) {
         }
       });
 
+      // --- Hover behavior for Chester route points (same layout as run points) ---
       map.on("mousemove", ROUTE_POINTS_LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
 
@@ -171,10 +182,44 @@ export function MapView({ region, points }: Props) {
 
         if (!coordinates) return;
 
+        const temp =
+          props.temperature === null || props.temperature === undefined
+            ? "N/A"
+            : `${Number(props.temperature).toFixed(1)}°C`;
+
+        const feels =
+          props.apparentTemperature === null || props.apparentTemperature === undefined
+            ? "N/A"
+            : `${Number(props.apparentTemperature).toFixed(1)}°C`;
+
+        const rainPct =
+          props.precipitationProbability === null || props.precipitationProbability === undefined
+            ? "N/A"
+            : `${Number(props.precipitationProbability).toFixed(0)}%`;
+
+        const rainMm =
+          props.precipitation === null || props.precipitation === undefined
+            ? "N/A"
+            : `${Number(props.precipitation).toFixed(1)}mm`;
+
+        const wind =
+          props.windspeed === null || props.windspeed === undefined
+            ? "N/A"
+            : `${Number(props.windspeed).toFixed(0)} km/h`;
+
+        const gusts =
+          props.windgusts === null || props.windgusts === undefined
+            ? "N/A"
+            : `${Number(props.windgusts).toFixed(0)} km/h`;
+
         const html = `
           <div class="text-xs">
             <div class="font-semibold mb-1">${props.name}</div>
-            <div>Suggested running spot</div>
+            <div><b>Score:</b> ${props.score}/100</div>
+            <div>Temp: ${temp} feels ${feels}</div>
+            <div>Rain: ${rainPct} · ${rainMm}</div>
+            <div>Wind: ${wind} · gusts ${gusts}</div>
+            <div style="opacity:.75; margin-top:4px;">Suggested running spot</div>
           </div>
         `;
 
@@ -247,8 +292,6 @@ export function MapView({ region, points }: Props) {
           .setHTML(html)
           .addTo(map);
       });
-
-      // Iteration 2 note: overlays go here
     });
 
     mapRef.current = map;
@@ -260,21 +303,31 @@ export function MapView({ region, points }: Props) {
     };
   }, []);
 
-  // ✅ IMPORTANT: Remove forced auto-zoom to region on load
-  // If you leave this in, it will always zoom straight into London because the region defaults to London.
-  // If later you want it to zoom only AFTER a user selection, we’ll add a small flag in the page component.
-  useEffect(() => {
-    // intentionally blank — no auto fitBounds
-  }, [region.bbox, region.slug]);
-
+  // Zoom to region only when autoFit is enabled (e.g., after dropdown selection)
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !points) return;
+    if (!map) return;
+    if (!autoFit) return;
+
+    const [minLon, minLat, maxLon, maxLat] = region.bbox;
+    map.fitBounds(
+      [
+        [minLon, minLat],
+        [maxLon, maxLat]
+      ],
+      { padding: 32, duration: 500 }
+    );
+  }, [autoFit, region.bbox, region.slug]);
+
+  // Keep the map source in sync even if points starts as null then later loads
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
 
     const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
     if (!source) return;
 
-    const features = points.map((p) => ({
+    const features = (points ?? []).map((p) => ({
       type: "Feature" as const,
       geometry: {
         type: "Point" as const,
