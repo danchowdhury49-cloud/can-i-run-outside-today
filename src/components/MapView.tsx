@@ -37,10 +37,16 @@ export function MapView({ region, points, autoFit = false, fitKey = 0 }: Props) 
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
-
+  
+    // ✅ Choose MapTiler if key exists, otherwise fallback
+    const styleUrl =
+      process.env.NEXT_PUBLIC_MAPTILER_KEY
+        ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${process.env.NEXT_PUBLIC_MAPTILER_KEY}`
+        : "https://demotiles.maplibre.org/style.json";
+  
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style: "https://demotiles.maplibre.org/style.json",
+      style: styleUrl,
       center: [-2.5, 54.5],
       zoom: 5
     });
