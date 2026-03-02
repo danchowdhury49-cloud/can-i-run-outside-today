@@ -6,6 +6,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import type { Region } from "@/lib/regions";
 import type { PointWeather } from "@/lib/weather-types";
 import { UK_CITIES } from "@/lib/uk-cities";
+import { CHESTER_ROUTE_POINTS } from "@/lib/chester-route-points";
 
 type Props = {
   region: Region;
@@ -18,6 +19,10 @@ const LAYER_ID = "run-points-layer";
 const CITIES_SOURCE_ID = "uk-cities";
 const CITIES_LAYER_ID = "uk-cities-layer";
 const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
+
+// Green “ideal route” dots (Chester/Hoole)
+const ROUTE_POINTS_SOURCE_ID = "route-points";
+const ROUTE_POINTS_LAYER_ID = "route-points-layer";
 
 export function MapView({ region, points }: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
@@ -93,7 +98,7 @@ export function MapView({ region, points }: Props) {
         source: CITIES_SOURCE_ID,
         paint: {
           "circle-radius": 3,
-          "circle-color": "#1e40af", // blue
+          "circle-color": "#1e40af",
           "circle-stroke-width": 1,
           "circle-stroke-color": "#ffffff"
         }
@@ -118,6 +123,73 @@ export function MapView({ region, points }: Props) {
           "text-halo-width": 1.25
         }
       });
+
+      // ============================================================
+      // POINT C (FULL BLOCK): Chester/Hoole “ideal route” green dots
+      // Paste/keep this whole block exactly as-is.
+      // ============================================================
+
+      // Add a GeoJSON source with a few “ideal run spot” points
+      map.addSource(ROUTE_POINTS_SOURCE_ID, {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: CHESTER_ROUTE_POINTS.map((p) => ({
+            type: "Feature" as const,
+            geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
+            properties: {
+              name: p.name,
+              // We force a high score so it visually matches “great” dots
+              score: 100
+            }
+          }))
+        }
+      });
+
+      // Render those points as green dots (same size/stroke as run points)
+      map.addLayer({
+        id: ROUTE_POINTS_LAYER_ID,
+        type: "circle",
+        source: ROUTE_POINTS_SOURCE_ID,
+        paint: {
+          "circle-radius": 6,
+          "circle-stroke-width": 1,
+          "circle-stroke-color": "#ffffff",
+          "circle-color": "#16a34a" // always green
+        }
+      });
+
+      // Optional: hover popup for the Chester route points
+      map.on("mousemove", ROUTE_POINTS_LAYER_ID, (e) => {
+        map.getCanvas().style.cursor = "pointer";
+
+        const feature = e.features?.[0];
+        if (!feature) return;
+
+        const props = feature.properties as any;
+        const coordinates =
+          feature.geometry.type === "Point"
+            ? (feature.geometry.coordinates.slice() as [number, number])
+            : null;
+
+        if (!coordinates) return;
+
+        const html = `
+          <div class="text-xs">
+            <div class="font-semibold mb-1">${props.name}</div>
+            <div>Suggested running spot</div>
+          </div>
+        `;
+
+        hoverPopup.setLngLat(coordinates).setHTML(html).addTo(map);
+      });
+
+      map.on("mouseleave", ROUTE_POINTS_LAYER_ID, () => {
+        map.getCanvas().style.cursor = "";
+        hoverPopup.remove();
+      });
+
+      // ============================================================
 
       // --- Hover behavior for run points ---
       map.on("mousemove", LAYER_ID, (e) => {

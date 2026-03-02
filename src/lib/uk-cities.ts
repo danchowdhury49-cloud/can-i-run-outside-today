@@ -25,5 +25,6 @@ export type UkCity = {
     { name: "Dundee", lat: 56.4620, lon: -2.9707 },
     { name: "Brighton", lat: 50.8225, lon: -0.1372 },
     { name: "Oxford", lat: 51.7520, lon: -1.2577 },
+    { name: "Chester", lat: 53.1934, lon: -2.8931 },
     { name: "Cambridge", lat: 52.2053, lon: 0.1218 }
   ];
