@@ -3,13 +3,17 @@ export type RouteStub = {
   name: string;
   regionSlug: string;
 
-  // NEW: attach route to an area
+  // ✅ new (so routes appear under areas)
   areaSlug?: string;
 
   distanceKm: number;
   terrain: "Road" | "Trail" | "Mixed";
   vibe: string;
   notes: string;
+
+  // ✅ optional: if you add coordinates later, the modal can draw the route line
+  // lng/lat pairs
+  coordinates?: [number, number][];
 };
 
 export const ROUTE_STUBS: RouteStub[] = [
