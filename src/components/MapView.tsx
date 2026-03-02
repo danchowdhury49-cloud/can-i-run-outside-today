@@ -1,196 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Region } from "@/lib/regions";
 import type { PointWeather } from "@/lib/weather-types";
 import { UK_CITIES } from "@/lib/uk-cities";
-import type { GridPoint } from "@/hooks/useGridWeather";
-
-export type HeatmapMode = "none" | "rain" | "gusts" | "feelslike";
 
 type Props = {
   region: Region;
   points: PointWeather[] | null;
-
-  // grid points for heatmap when zoomed out
-  gridPoints: GridPoint[] | null;
-
   autoFit?: boolean;
   fitKey?: number;
-  heatmapMode?: HeatmapMode;
 };
 
-const SOURCE_ID = "run-points"; // marker points
+const SOURCE_ID = "run-points";
 const LAYER_ID = "run-points-layer";
-
-const GRID_SOURCE_ID = "heatmap-points"; // heatmap source (grid or points depending on zoom)
-const HEATMAP_LAYER_ID = "run-heatmap-layer";
 
 const CITIES_SOURCE_ID = "uk-cities";
 const CITIES_LAYER_ID = "uk-cities-layer";
 const CITIES_DOT_LAYER_ID = "uk-cities-dot-layer";
 
-const RADAR_SOURCE_ID = "radar-source";
-const RADAR_LAYER_ID = "radar-layer";
-
-const ZOOM_SWITCH = 11; // <11 = grid, >=11 = curated points heatmap
-
 export function MapView({
   region,
   points,
-  gridPoints,
   autoFit = false,
-  fitKey = 0,
-  heatmapMode = "none"
+  fitKey = 0
 }: Props) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
-
-  // Keep track of which dataset the heatmap should use
-  const useCuratedForHeatRef = useRef(false);
-
-  const heatmapPaint = useMemo(() => {
-    // IMPORTANT: "rain" is now handled by RADAR tiles, not heatmap
-    if (heatmapMode === "gusts") {
-      return {
-        "heatmap-weight": [
-          "interpolate",
-          ["linear"],
-          ["get", "heat_gusts"],
-          0,
-          0,
-          25,
-          0.2,
-          45,
-          0.5,
-          65,
-          0.8,
-          85,
-          1
-        ],
-        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 10, 1.6, 14, 2.4],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28, 14, 44],
-        "heatmap-opacity": 0.85,
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-          0,
-          "rgba(0,0,0,0)",
-          0.15,
-          "rgba(34,197,94,0.6)",
-          0.35,
-          "rgba(56,189,248,0.75)",
-          0.6,
-          "rgba(250,204,21,0.85)",
-          0.85,
-          "rgba(249,115,22,0.9)",
-          1,
-          "rgba(239,68,68,0.95)"
-        ]
-      } as const;
-    }
-
-    if (heatmapMode === "feelslike") {
-      return {
-        "heatmap-weight": [
-          "interpolate",
-          ["linear"],
-          ["get", "heat_feels"],
-          -5,
-          1,
-          5,
-          0.6,
-          12,
-          0.25,
-          20,
-          0.6,
-          28,
-          1
-        ],
-        "heatmap-intensity": ["interpolate", ["linear"], ["zoom"], 4, 0.8, 10, 1.6, 14, 2.4],
-        "heatmap-radius": ["interpolate", ["linear"], ["zoom"], 4, 14, 10, 28, 14, 44],
-        "heatmap-opacity": 0.85,
-        "heatmap-color": [
-          "interpolate",
-          ["linear"],
-          ["heatmap-density"],
-          0,
-          "rgba(0,0,0,0)",
-          0.2,
-          "rgba(59,130,246,0.75)",
-          0.45,
-          "rgba(34,197,94,0.65)",
-          0.7,
-          "rgba(250,204,21,0.85)",
-          0.9,
-          "rgba(249,115,22,0.9)",
-          1,
-          "rgba(239,68,68,0.95)"
-        ]
-      } as const;
-    }
-
-    return null;
-  }, [heatmapMode]);
-
-  function buildMarkerFeatures(data: PointWeather[]) {
-    return data.map((p) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [p.point.lon, p.point.lat] },
-      properties: {
-        name: p.point.name,
-        score: p.score,
-        temperature: p.selected.temperature,
-        apparentTemperature: p.selected.apparentTemperature,
-        precipitation: p.selected.precipitation,
-        precipitationProbability: p.selected.precipitationProbability,
-        windspeed: p.selected.windspeed,
-        windgusts: p.selected.windgusts,
-
-        // heat props (for when we use curated points as heatmap)
-        heat_rain: p.selected.precipitationProbability,
-        heat_gusts: p.selected.windgusts,
-        heat_feels: p.selected.apparentTemperature
-      }
-    }));
-  }
-
-  function buildGridFeatures(data: GridPoint[]) {
-    return data.map((p) => ({
-      type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [p.lon, p.lat] },
-      properties: {
-        heat_rain: p.selected.precipitationProbability,
-        heat_gusts: p.selected.windgusts,
-        heat_feels: p.selected.apparentTemperature
-      }
-    }));
-  }
-
-  function updateHeatSource() {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const source = map.getSource(GRID_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
-    if (!source) return;
-
-    const shouldUseCurated = useCuratedForHeatRef.current;
-
-    const curated = points ?? [];
-    const grid = gridPoints ?? [];
-
-    const features =
-      shouldUseCurated && curated.length > 0
-        ? buildMarkerFeatures(curated)
-        : grid.length > 0
-        ? buildGridFeatures(grid)
-        : [];
-
-    source.setData({ type: "FeatureCollection", features });
-  }
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
@@ -207,7 +45,10 @@ export function MapView({
       zoom: 5
     });
 
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: false }), "top-right");
+    map.addControl(
+      new maplibregl.NavigationControl({ visualizePitch: false }),
+      "top-right"
+    );
 
     const hoverPopup = new maplibregl.Popup({
       closeButton: false,
@@ -216,54 +57,12 @@ export function MapView({
     });
 
     map.on("load", () => {
-      // marker source
+      // --- Marker source ---
       map.addSource(SOURCE_ID, {
         type: "geojson",
         data: { type: "FeatureCollection", features: [] }
       });
 
-      // heatmap source (grid or curated, swapped dynamically)
-      map.addSource(GRID_SOURCE_ID, {
-        type: "geojson",
-        data: { type: "FeatureCollection", features: [] }
-      });
-
-      // --- Radar / precipitation tiles (RainViewer) ---
-      map.addSource(RADAR_SOURCE_ID, {
-        type: "raster",
-        tiles: [
-          // latest frame (simple, static); we can animate later
-          "https://tilecache.rainviewer.com/v2/radar/nowcast_0/256/{z}/{x}/{y}/2/1_1.png"
-        ],
-        tileSize: 256
-      });
-
-      // Put radar UNDER markers, above basemap
-      map.addLayer({
-        id: RADAR_LAYER_ID,
-        type: "raster",
-        source: RADAR_SOURCE_ID,
-        layout: { visibility: "none" },
-        paint: {
-          "raster-opacity": 0.65
-        }
-      });
-
-      // heatmap layer (for gusts/feels)
-      map.addLayer({
-        id: HEATMAP_LAYER_ID,
-        type: "heatmap",
-        source: GRID_SOURCE_ID,
-        layout: { visibility: "none" },
-        paint: {
-          "heatmap-weight": 0,
-          "heatmap-intensity": 1,
-          "heatmap-radius": 20,
-          "heatmap-opacity": 0.8
-        }
-      });
-
-      // marker layer
       map.addLayer({
         id: LAYER_ID,
         type: "circle",
@@ -285,14 +84,17 @@ export function MapView({
         }
       });
 
-      // cities
+      // --- Cities ---
       map.addSource(CITIES_SOURCE_ID, {
         type: "geojson",
         data: {
           type: "FeatureCollection",
           features: UK_CITIES.map((c) => ({
             type: "Feature" as const,
-            geometry: { type: "Point" as const, coordinates: [c.lon, c.lat] },
+            geometry: {
+              type: "Point" as const,
+              coordinates: [c.lon, c.lat]
+            },
             properties: { name: c.name }
           }))
         }
@@ -329,17 +131,10 @@ export function MapView({
         }
       });
 
-      // zoom switch logic (for gusts/feels heatmap only)
-      const refreshZoomMode = () => {
-        useCuratedForHeatRef.current = map.getZoom() >= ZOOM_SWITCH;
-        updateHeatSource();
-      };
-      refreshZoomMode();
-      map.on("zoomend", refreshZoomMode);
-
-      // marker hover popup
+      // --- Hover popups ---
       map.on("mousemove", LAYER_ID, (e) => {
         map.getCanvas().style.cursor = "pointer";
+
         const feature = e.features?.[0];
         if (!feature) return;
 
@@ -348,46 +143,31 @@ export function MapView({
           feature.geometry.type === "Point"
             ? (feature.geometry.coordinates.slice() as [number, number])
             : null;
+
         if (!coordinates) return;
 
         const html = `
           <div class="text-xs">
             <div class="font-semibold mb-1">${props.name}</div>
             <div><b>Score:</b> ${props.score}/100</div>
-            <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(props.apparentTemperature).toFixed(1)}°C</div>
-            <div>Rain: ${Number(props.precipitationProbability).toFixed(0)}% · ${Number(props.precipitation).toFixed(1)}mm</div>
-            <div>Wind: ${Number(props.windspeed).toFixed(0)} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
+            <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(
+          props.apparentTemperature
+        ).toFixed(1)}°C</div>
+            <div>Rain: ${Number(props.precipitationProbability).toFixed(
+              0
+            )}% · ${Number(props.precipitation).toFixed(1)}mm</div>
+            <div>Wind: ${Number(props.windspeed).toFixed(
+              0
+            )} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
           </div>
         `;
+
         hoverPopup.setLngLat(coordinates).setHTML(html).addTo(map);
       });
 
       map.on("mouseleave", LAYER_ID, () => {
         map.getCanvas().style.cursor = "";
         hoverPopup.remove();
-      });
-
-      map.on("click", LAYER_ID, (e) => {
-        const feature = e.features?.[0];
-        if (!feature) return;
-
-        const props = feature.properties as any;
-        const coordinates =
-          feature.geometry.type === "Point"
-            ? (feature.geometry.coordinates.slice() as [number, number])
-            : null;
-        if (!coordinates) return;
-
-        const html = `
-          <div class="text-xs">
-            <div class="font-semibold mb-1">${props.name}</div>
-            <div><b>Score:</b> ${props.score}/100</div>
-            <div>Temp: ${Number(props.temperature).toFixed(1)}°C feels ${Number(props.apparentTemperature).toFixed(1)}°C</div>
-            <div>Rain: ${Number(props.precipitationProbability).toFixed(0)}% · ${Number(props.precipitation).toFixed(1)}mm</div>
-            <div>Wind: ${Number(props.windspeed).toFixed(0)} km/h · gusts ${Number(props.windgusts).toFixed(0)} km/h</div>
-          </div>
-        `;
-        new maplibregl.Popup({ closeButton: false }).setLngLat(coordinates).setHTML(html).addTo(map);
       });
     });
 
@@ -397,16 +177,15 @@ export function MapView({
       map.remove();
       mapRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fit to region only when enabled
+  // --- Fit to region ---
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (!autoFit) return;
+    if (!map || !autoFit) return;
 
     const [minLon, minLat, maxLon, maxLat] = region.bbox;
+
     map.fitBounds(
       [
         [minLon, minLat],
@@ -416,17 +195,23 @@ export function MapView({
     );
   }, [autoFit, fitKey, region.bbox, region.slug]);
 
-  // Update marker source when curated points change
+  // --- Update marker data ---
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    const source = map.getSource(SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
+    const source = map.getSource(SOURCE_ID) as
+      | maplibregl.GeoJSONSource
+      | undefined;
+
     if (!source) return;
 
     const features = (points ?? []).map((p) => ({
       type: "Feature" as const,
-      geometry: { type: "Point" as const, coordinates: [p.point.lon, p.point.lat] },
+      geometry: {
+        type: "Point" as const,
+        coordinates: [p.point.lon, p.point.lat]
+      },
       properties: {
         name: p.point.name,
         score: p.score,
@@ -439,49 +224,11 @@ export function MapView({
       }
     }));
 
-    source.setData({ type: "FeatureCollection", features });
-
-    updateHeatSource();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    source.setData({
+      type: "FeatureCollection",
+      features
+    });
   }, [points]);
-
-  // Update heat source when grid points change
-  useEffect(() => {
-    updateHeatSource();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gridPoints]);
-
-  // Toggle overlays:
-  // - Rain = Radar tiles
-  // - Gusts/Feels = Heatmap
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    const hasHeat = !!map.getLayer(HEATMAP_LAYER_ID);
-    const hasRadar = !!map.getLayer(RADAR_LAYER_ID);
-
-    // Hide both to start
-    if (hasHeat) map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "none");
-    if (hasRadar) map.setLayoutProperty(RADAR_LAYER_ID, "visibility", "none");
-
-    if (heatmapMode === "none") return;
-
-    if (heatmapMode === "rain") {
-      if (hasRadar) map.setLayoutProperty(RADAR_LAYER_ID, "visibility", "visible");
-      return;
-    }
-
-    if (!hasHeat || !heatmapPaint) return;
-
-    map.setLayoutProperty(HEATMAP_LAYER_ID, "visibility", "visible");
-    for (const [k, v] of Object.entries(heatmapPaint)) {
-      map.setPaintProperty(HEATMAP_LAYER_ID, k as any, v as any);
-    }
-
-    updateHeatSource();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [heatmapMode, heatmapPaint]);
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -489,20 +236,14 @@ export function MapView({
         ref={mapContainerRef}
         className="h-[420px] w-full rounded-2xl border border-sky-200 bg-slate-200 shadow-sm md:h-[520px]"
       />
-
       <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[11px] text-slate-600 shadow-sm">
-        <span className="font-semibold uppercase tracking-wide">Score legend</span>
+        <span className="font-semibold uppercase tracking-wide">
+          Score legend
+        </span>
         <LegendDot color="#16a34a" label="80–100 Great" />
         <LegendDot color="#0ea5e9" label="60–79 OK" />
         <LegendDot color="#f97316" label="40–59 Caution" />
         <LegendDot color="#e11d48" label="0–39 Avoid" />
-        {heatmapMode !== "none" && (
-          <span className="ml-2 opacity-80">
-            {heatmapMode === "rain"
-              ? "(rain uses radar tiles)"
-              : `(heatmap switches to curated at zoom ≥ ${ZOOM_SWITCH})`}
-          </span>
-        )}
       </div>
     </div>
   );
