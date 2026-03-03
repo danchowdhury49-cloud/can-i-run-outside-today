@@ -167,14 +167,21 @@ export function RoutesClient({ regions, routes, areasByRegion }: Props) {
       </div>
 
       {selectedRegion && selectedArea && selectedRoute && (
-        <RouteDetailsModal
-          open={open}
-          onClose={() => setOpen(false)}
-          regionSlug={selectedRegion.slug}
-          area={selectedArea as any}
-          route={selectedRoute as any}
-        />
-      )}
+  <RouteDetailsModal
+    open={open}
+    onClose={() => setOpen(false)}
+    regionSlug={selectedRegion.slug}
+    area={{
+      ...selectedArea,
+      // ✅ fallback to REGION centre if area.center missing
+      center:
+        (selectedArea as any).center ??
+        (selectedRegion as any).center ?? // assumes your Region has center: [lat, lon]
+        [54.5, -2.5] // final UK fallback
+    }}
+    route={selectedRoute as any}
+  />
+)}
     </div>
   );
 }
